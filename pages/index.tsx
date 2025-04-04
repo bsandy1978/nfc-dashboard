@@ -222,12 +222,14 @@ END:VCARD`.trim();
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          username: user.username, // ✅ must be present
           name: appointment.name,
           email: appointment.email,
           date: appointment.date,
           time: appointment.time,
         }),
       });
+      
 
       if (!res.ok) {
         const data = await res.json();
