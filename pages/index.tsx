@@ -279,8 +279,10 @@ END:VCARD`.trim();
             <select
               id="themeSelect"
               value={theme}
-              onChange={(e) => setTheme(e.target.value)}
-              className="p-1 rounded border dark:bg-gray-800 dark:text-white"
+              onChange={(e) =>
+                setTheme(e.target.value as "default" | "ocean" | "forest" | "sunset")
+              }
+                            className="p-1 rounded border dark:bg-gray-800 dark:text-white"
               aria-label="Select Theme"
             >
               <option value="default">Default</option>
