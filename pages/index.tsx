@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import {
   FaMoon,
   FaSun,
@@ -57,7 +58,7 @@ export default function Home() {
     title: "Networking Expert",
     subtitle: "Hair stylist from Los Angeles, CA",
     avatar: "https://i.pravatar.cc/150?img=65",
-    banner: "https://via.placeholder.com/600x200",
+    //banner: "https://via.placeholder.com/600x200",
     email: "email@email.com",
     instagram: "@arley",
     linkedin: "arley",
