@@ -17,6 +17,7 @@ import { EnvelopeIcon } from "@heroicons/react/24/outline";
 import { QRCodeCanvas } from "qrcode.react";
 
 export default function Home() {
+  // Use NEXT_PUBLIC_API_BASE_URL so it is available on the client-side.
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
   
   // Theme & display states
@@ -127,6 +128,38 @@ END:VCARD`.trim();
 
   const handleChange = (field: string, value: string) => {
     setUser((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // NEW: Save profile to backend API
+  const handleSaveProfile = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/profiles`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(user),
+      });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to save profile");
+      }
+      const data = await res.json();
+      console.log("✅ Profile saved:", data);
+      alert("Profile saved successfully!");
+    } catch (error) {
+      console.error("❌ Error saving profile:", error);
+      alert("Error saving profile: " + error);
+    }
+  };
+
+  // Modify the Edit/Save button handler: if in edit mode, save changes via API; else, toggle edit mode.
+  const handleEditButtonClick = () => {
+    if (editMode) {
+      // Save the profile changes to the backend
+      handleSaveProfile();
+      setEditMode(false);
+    } else {
+      setEditMode(true);
+    }
   };
 
   // Appointment submission: call external backend API
@@ -255,9 +288,7 @@ END:VCARD`.trim();
               <img
                 src={user.avatar}
                 alt="Avatar"
-                className={`w-28 h-28 rounded-full border-4 border-white dark:border-gray-700 shadow-xl cursor-pointer hover:scale-105 transition duration-300 ${
-                  isAvatarUploading ? "opacity-50" : ""
-                }`}
+                className={`w-28 h-28 rounded-full border-4 border-white dark:border-gray-700 shadow-xl cursor-pointer hover:scale-105 transition duration-300 ${isAvatarUploading ? "opacity-50" : ""}`}
                 onClick={() => fileInputRef.current?.click()}
                 title="Click to change avatar"
               />
@@ -300,7 +331,7 @@ END:VCARD`.trim();
             {/* Action Buttons */}
             <div className="flex w-full gap-2 mt-3">
               <button
-                onClick={() => setEditMode(!editMode)}
+                onClick={handleEditButtonClick}
                 title="Edit Profile"
                 className="flex-1 text-sm bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-2 rounded-md flex justify-center items-center gap-1 shadow-md hover:shadow-xl hover:scale-105 transition duration-300"
               >
