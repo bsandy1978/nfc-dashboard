@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   FaMoon,
   FaSun,
@@ -16,37 +16,53 @@ import {
 import { EnvelopeIcon } from "@heroicons/react/24/outline";
 import { QRCodeCanvas } from "qrcode.react";
 
+interface UserProfileData {
+  name: string;
+  title: string;
+  subtitle: string;
+  avatar: string;
+  email: string;
+  instagram: string;
+  linkedin: string;
+  twitter: string;
+  website: string;
+  location: string;
+  upi: string;
+}
+
+interface AppointmentData {
+  name: string;
+  email: string;
+  date: string;
+  time: string;
+}
+
 export default function Home() {
   // Use NEXT_PUBLIC_API_BASE_URL so it is available on the client-side.
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-  
+
   // Theme & display states
-  const [darkMode, setDarkMode] = useState(false);
-  const [theme, setTheme] = useState("default");
+  const [darkMode, setDarkMode] = useState<boolean>(false);
+  const [theme, setTheme] = useState<"default" | "ocean" | "forest" | "sunset">("default");
 
   // Edit mode and image uploading states
-  const [editMode, setEditMode] = useState(false);
-  const [isAvatarUploading, setIsAvatarUploading] = useState(false);
+  const [editMode, setEditMode] = useState<boolean>(false);
+  const [isAvatarUploading, setIsAvatarUploading] = useState<boolean>(false);
 
   // QR Code display state
-  const [showQRCode, setShowQRCode] = useState(false);
+  const [showQRCode, setShowQRCode] = useState<boolean>(false);
 
   // Appointment states
-  const [appointmentConfirmed, setAppointmentConfirmed] = useState<{
-    name: string;
-    email: string;
-    date: string;
-    time: string;
-  } | null>(null);
-  const [appointmentError, setAppointmentError] = useState("");
-  const [appointmentRequestSent, setAppointmentRequestSent] = useState(false);
-  const [pendingAppointment, setPendingAppointment] = useState({
+  const [appointmentConfirmed, setAppointmentConfirmed] = useState<AppointmentData | null>(null);
+  const [appointmentError, setAppointmentError] = useState<string>("");
+  const [appointmentRequestSent, setAppointmentRequestSent] = useState<boolean>(false);
+  const [pendingAppointment, setPendingAppointment] = useState<AppointmentData>({
     name: "",
     email: "",
     date: "",
     time: "",
   });
-  const [appointment, setAppointment] = useState({
+  const [appointment, setAppointment] = useState<AppointmentData>({
     name: "",
     email: "",
     date: "",
@@ -54,7 +70,7 @@ export default function Home() {
   });
 
   // User profile state
-  const [user, setUser] = useState({
+  const [user, setUser] = useState<UserProfileData>({
     name: "Alex Doe",
     title: "Networking Expert",
     subtitle: "Hair stylist from Los Angeles, CA",
@@ -81,13 +97,13 @@ export default function Home() {
     localStorage.setItem("userProfile", JSON.stringify(user));
   }, [user]);
 
-  // Toggle dark mode class on html element
+  // Toggle dark mode on <html> element
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
   }, [darkMode]);
 
   // Theme background classes
-  const themeClasses = {
+  const themeClasses: Record<typeof theme, string> = {
     default:
       "bg-gradient-to-b from-gray-100 to-blue-100 dark:from-gray-900 dark:to-gray-800",
     ocean:
@@ -96,7 +112,7 @@ export default function Home() {
       "bg-gradient-to-b from-green-200 to-green-500 dark:from-green-800 dark:to-green-900",
     sunset:
       "bg-gradient-to-b from-yellow-200 to-pink-500 dark:from-yellow-800 dark:to-pink-900",
-  }[theme];
+  };
 
   const handleDownloadVCF = () => {
     const vcf = `BEGIN:VCARD
@@ -126,11 +142,11 @@ END:VCARD`.trim();
     }
   };
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = (field: keyof UserProfileData, value: string) => {
     setUser((prev) => ({ ...prev, [field]: value }));
   };
 
-  // NEW: Save profile to backend API
+  // Save profile to backend API
   const handleSaveProfile = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/profiles`, {
@@ -138,23 +154,30 @@ END:VCARD`.trim();
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(user),
       });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Failed to save profile");
+
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {
+        console.warn("No JSON response body. Possibly successful with empty response.");
       }
-      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error((data as any).error || "Failed to save profile");
+      }
+
       console.log("✅ Profile saved:", data);
       alert("Profile saved successfully!");
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ Error saving profile:", error);
-      alert("Error saving profile: " + error);
+      alert("Error saving profile: " + error.message);
     }
   };
 
-  // Modify the Edit/Save button handler: if in edit mode, save changes via API; else, toggle edit mode.
+  // Modify the Edit/Save button handler
   const handleEditButtonClick = () => {
     if (editMode) {
-      // Save the profile changes to the backend
+      // Save changes via API when leaving edit mode
       handleSaveProfile();
       setEditMode(false);
     } else {
@@ -206,12 +229,7 @@ END:VCARD`.trim();
   };
 
   // Generate a Google Calendar event link (30 minutes duration)
-  const generateGoogleCalendarLink = (appt: {
-    name: string;
-    email: string;
-    date: string;
-    time: string;
-  }) => {
+  const generateGoogleCalendarLink = (appt: AppointmentData) => {
     const startDateTime = new Date(`${appt.date}T${appt.time}`);
     const endDateTime = new Date(startDateTime.getTime() + 30 * 60000);
     const pad = (num: number) => (num < 10 ? "0" + num : num);
@@ -288,7 +306,9 @@ END:VCARD`.trim();
               <img
                 src={user.avatar}
                 alt="Avatar"
-                className={`w-28 h-28 rounded-full border-4 border-white dark:border-gray-700 shadow-xl cursor-pointer hover:scale-105 transition duration-300 ${isAvatarUploading ? "opacity-50" : ""}`}
+                className={`w-28 h-28 rounded-full border-4 border-white dark:border-gray-700 shadow-xl cursor-pointer hover:scale-105 transition duration-300 ${
+                  isAvatarUploading ? "opacity-50" : ""
+                }`}
                 onClick={() => fileInputRef.current?.click()}
                 title="Click to change avatar"
               />
