@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef } from "react";
-import { SpeedInsights } from "@vercel/speed-insights/next"
 import {
   FaMoon,
   FaSun,
@@ -25,7 +24,6 @@ export default function Home() {
   // Edit mode and image uploading states
   const [editMode, setEditMode] = useState(false);
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
-  const [isBannerUploading, setIsBannerUploading] = useState(false);
 
   // QR Code display state
   const [showQRCode, setShowQRCode] = useState(false);
@@ -58,7 +56,6 @@ export default function Home() {
     title: "Networking Expert",
     subtitle: "Hair stylist from Los Angeles, CA",
     avatar: "https://i.pravatar.cc/150?img=65",
-    //banner: "https://via.placeholder.com/600x200",
     email: "email@email.com",
     instagram: "@arley",
     linkedin: "arley",
@@ -69,7 +66,6 @@ export default function Home() {
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const bannerInputRef = useRef<HTMLInputElement>(null);
 
   // Load saved profile from localStorage
   useEffect(() => {
@@ -127,24 +123,11 @@ END:VCARD`.trim();
     }
   };
 
-  const handleBannerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setIsBannerUploading(true);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setUser((prev) => ({ ...prev, banner: reader.result as string }));
-        setIsBannerUploading(false);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const handleChange = (field: string, value: string) => {
     setUser((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Appointment submission: validate and send request (simulate email)
+  // Appointment submission: validate and simulate sending request
   const handleAppointmentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setAppointmentError("");
@@ -212,7 +195,7 @@ END:VCARD`.trim();
   return (
     <main className={`min-h-screen ${themeClasses} transition-colors text-gray-800 dark:text-gray-100`}>
       <div className="max-w-md mx-auto p-4">
-        {/* Top Controls: Theme Selector & Dark Mode Toggle (always in one row) */}
+        {/* Top Controls: Theme Selector & Dark Mode Toggle */}
         <div className="mb-4 flex flex-row justify-between items-center">
           <div className="flex items-center space-x-2">
             <label htmlFor="themeSelect" className="text-sm font-semibold">
@@ -242,26 +225,6 @@ END:VCARD`.trim();
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-4 sm:p-6 ring-1 ring-blue-100 dark:ring-blue-900">
-          {/* Banner Image */}
-          <div className="relative mb-4">
-            <img
-              src={user.banner}
-              alt="Banner"
-              className="w-full h-40 object-cover rounded-md cursor-pointer hover:opacity-90 transition duration-300"
-              onClick={() => editMode && bannerInputRef.current?.click()}
-              title={editMode ? "Click to change banner" : "Banner"}
-            />
-            {isBannerUploading && (
-              <FaSpinner className="absolute inset-0 m-auto text-4xl animate-spin" />
-            )}
-            {editMode && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
-                <FaEdit className="text-white text-2xl" />
-              </div>
-            )}
-            <input type="file" ref={bannerInputRef} hidden accept="image/*" onChange={handleBannerUpload} />
-          </div>
-
           <div className="flex flex-col items-center space-y-2">
             {/* Avatar */}
             <div className="relative">
