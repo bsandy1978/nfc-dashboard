@@ -50,7 +50,7 @@ export default function Home() {
     time: "",
   });
 
-  // User profile state
+  // User profile state (banner removed)
   const [user, setUser] = useState({
     name: "Alex Doe",
     title: "Networking Expert",
