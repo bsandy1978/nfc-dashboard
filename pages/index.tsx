@@ -17,6 +17,8 @@ import { EnvelopeIcon } from "@heroicons/react/24/outline";
 import { QRCodeCanvas } from "qrcode.react";
 
 export default function Home() {
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+  
   // Theme & display states
   const [darkMode, setDarkMode] = useState(false);
   const [theme, setTheme] = useState("default");
@@ -50,7 +52,7 @@ export default function Home() {
     time: "",
   });
 
-  // User profile state (banner removed)
+  // User profile state
   const [user, setUser] = useState({
     name: "Alex Doe",
     title: "Networking Expert",
@@ -127,8 +129,8 @@ END:VCARD`.trim();
     setUser((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Appointment submission: validate and simulate sending request
-  const handleAppointmentSubmit = (e: React.FormEvent) => {
+  // Appointment submission: call external backend API
+  const handleAppointmentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAppointmentError("");
     const appointmentDateTime = new Date(`${appointment.date}T${appointment.time}`);
@@ -136,12 +138,34 @@ END:VCARD`.trim();
       setAppointmentError("Please choose a future date and time for your appointment.");
       return;
     }
-    setPendingAppointment({ ...appointment });
-    setAppointmentRequestSent(true);
-    setAppointment({ name: "", email: "", date: "", time: "" });
+    
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/appointments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: appointment.name,
+          email: appointment.email,
+          date: appointment.date,
+          time: appointment.time,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setAppointmentError(data.message || "Failed to create appointment.");
+        return;
+      }
+
+      alert("Appointment request sent!");
+      setAppointment({ name: "", email: "", date: "", time: "" });
+    } catch (error) {
+      console.error("Appointment submission error:", error);
+      setAppointmentError("An error occurred. Please try again.");
+    }
   };
 
-  // Simulate the confirmation step (user confirms appointment from their email)
+  // Simulate the confirmation step
   const handleAppointmentConfirmation = () => {
     setAppointmentConfirmed({ ...pendingAppointment });
     setAppointmentRequestSent(false);
@@ -195,7 +219,7 @@ END:VCARD`.trim();
   return (
     <main className={`min-h-screen ${themeClasses} transition-colors text-gray-800 dark:text-gray-100`}>
       <div className="max-w-md mx-auto p-4">
-        {/* Top Controls: Theme Selector & Dark Mode Toggle */}
+        {/* Top Controls */}
         <div className="mb-4 flex flex-row justify-between items-center">
           <div className="flex items-center space-x-2">
             <label htmlFor="themeSelect" className="text-sm font-semibold">
