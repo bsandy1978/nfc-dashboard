@@ -99,16 +99,17 @@ export default function Home() {
   // Load saved profile from localStorage
   useEffect(() => {
     const storedUser = localStorage.getItem("userProfile");
-    if (storedUser) setUser(JSON.parse(storedUser));
-    else {
-      const defaultUser = {
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    } else {
+      const newUser = {
         ...user,
-        username: generateUsername(user.name),
+        username: generateUsername(""),
       };
-      setUser(defaultUser);
-      localStorage.setItem("userProfile", JSON.stringify(defaultUser));
+      setUser(newUser);
+      localStorage.setItem("userProfile", JSON.stringify(newUser));
     }
-  }, []);  
+  }, []);
 
   // Persist profile changes
   useEffect(() => {
