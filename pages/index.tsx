@@ -17,6 +17,7 @@ import { EnvelopeIcon } from "@heroicons/react/24/outline";
 import { QRCodeCanvas } from "qrcode.react";
 
 interface UserProfileData {
+  username?: string;  // ✅ Add this line
   name: string;
   title: string;
   subtitle: string;
@@ -84,13 +85,30 @@ export default function Home() {
     upi: "alex@upi",
   });
 
+  function generateUsername(name: string) {
+    if (!name) return "user" + Math.floor(Math.random() * 10000);
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "")   // remove special chars
+      .slice(0, 15) +               // limit to 15 chars
+      Math.floor(Math.random() * 1000); // add randomness
+  }
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load saved profile from localStorage
   useEffect(() => {
     const storedUser = localStorage.getItem("userProfile");
     if (storedUser) setUser(JSON.parse(storedUser));
-  }, []);
+    else {
+      const defaultUser = {
+        ...user,
+        username: generateUsername(user.name),
+      };
+      setUser(defaultUser);
+      localStorage.setItem("userProfile", JSON.stringify(defaultUser));
+    }
+  }, []);  
 
   // Persist profile changes
   useEffect(() => {
@@ -152,8 +170,11 @@ END:VCARD`.trim();
       const res = await fetch(`${API_BASE_URL}/api/profiles`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(user),
-      });
+        body: JSON.stringify({
+          ...user,
+          username: user.username || generateUsername(user.name),
+        }),
+      });      
 
       let data = {};
       try {
