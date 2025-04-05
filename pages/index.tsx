@@ -1,3 +1,4 @@
+import axios from 'axios';
 import React, { useEffect, useState, useRef } from "react";
 import {
   FaMoon, FaSun, FaDownload, FaEdit, FaInstagram, FaLinkedin, FaTwitter,
@@ -32,6 +33,16 @@ interface HomeProps {
   initialData?: Partial<UserProfileData>;
   initialEditMode?: boolean;
 }
+
+// Function to generate a unique device ID (could use a library like uuid)
+const generateDeviceId = () => {
+  return localStorage.getItem('deviceId') || Math.random().toString(36).substring(2, 15);  // Fallback in case there's no device ID
+};
+
+const Home = ({ initialData, initialEditMode = true }) => {
+  const [user, setUser] = useState(initialData);
+  const [isOwner, setIsOwner] = useState(false);
+  const [deviceId, setDeviceId] = useState(generateDeviceId());
 
 export default function Home({ initialData, initialEditMode = true }: HomeProps) {
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -102,7 +113,57 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
         setEditMode(false);
       }
     }
-  }, [user?.username]);  
+  }, [user?.username]);
+  
+  // Function to generate a unique device ID (could use a library like uuid)
+const generateDeviceId = () => {
+  return localStorage.getItem('deviceId') || Math.random().toString(36).substring(2, 15);  // Fallback in case there's no device ID
+};
+
+const Home = ({ initialData, initialEditMode = true }) => {
+  const [user, setUser] = useState(initialData);
+  const [isOwner, setIsOwner] = useState(false);
+  const [deviceId, setDeviceId] = useState(generateDeviceId());
+
+  useEffect(() => {
+    localStorage.setItem('deviceId', deviceId);  // Store device ID for future checks
+
+    const setOwner = async () => {
+      try {
+        const response = await axios.post('/api/profile/set-owner', {
+          username: user.username,
+          deviceId: deviceId
+        });
+
+        // Check if this device is the owner
+        if (response.data.ownerDeviceId === deviceId) {
+          setIsOwner(true);
+        }
+      } catch (error) {
+        console.error('Error setting owner:', error);
+      }
+    };
+
+    setOwner();
+  }, [user.username, deviceId]);
+
+  return (
+    <div>
+      <h1>{isOwner ? 'You are the owner' : 'You are in view-only mode'}</h1>
+      {/* Render profile or allow editing if the user is the owner */}
+      {isOwner ? (
+        <div>
+          {/* Profile edit form */}
+        </div>
+      ) : (
+        <div>
+          {/* View-only profile */}
+        </div>
+      )}
+    </div>
+  );
+};
+
 
   useEffect(() => {
     localStorage.setItem("userProfile", JSON.stringify(user));
