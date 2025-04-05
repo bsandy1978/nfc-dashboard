@@ -43,7 +43,7 @@ interface HomeProps {
   initialEditMode?: boolean;
 }
 
-export default function Home({ initialData, initialEditMode = false }: HomeProps) {
+export default function Home({ initialData, initialEditMode = true }: HomeProps) {
 
   // Use NEXT_PUBLIC_API_BASE_URL so it is available on the client-side.
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
