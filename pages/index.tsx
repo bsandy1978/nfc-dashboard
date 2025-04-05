@@ -38,7 +38,13 @@ interface AppointmentData {
   time: string;
 }
 
-export default function Home() {
+interface HomeProps {
+  initialData?: Partial<UserProfileData>;
+  initialEditMode?: boolean;
+}
+
+export default function Home({ initialData, initialEditMode = false }: HomeProps) {
+
   // Use NEXT_PUBLIC_API_BASE_URL so it is available on the client-side.
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -47,7 +53,7 @@ export default function Home() {
   const [theme, setTheme] = useState<"default" | "ocean" | "forest" | "sunset">("default");
 
   // Edit mode and image uploading states
-  const [editMode, setEditMode] = useState<boolean>(false);
+  const [editMode, setEditMode] = useState<boolean>(initialEditMode);
   const [isAvatarUploading, setIsAvatarUploading] = useState<boolean>(false);
 
   // QR Code display state
@@ -71,19 +77,20 @@ export default function Home() {
   });
 
   // User profile state
-  const [user, setUser] = useState<UserProfileData>({
-    name: "Alex Doe",
-    title: "Networking Expert",
-    subtitle: "Hair stylist from Los Angeles, CA",
-    avatar: "https://i.pravatar.cc/150?img=65",
-    email: "email@email.com",
-    instagram: "@arley",
-    linkedin: "arley",
-    twitter: "@alexdoe",
-    website: "https://www.alexdoe.com",
-    location: "Los Angeles, CA",
-    upi: "alex@upi",
-  });
+  interface UserProfileData {
+    username?: string;
+    name?: string;
+    title?: string;
+    subtitle?: string;
+    avatar?: string;
+    email?: string;
+    instagram?: string;
+    linkedin?: string;
+    twitter?: string;
+    website?: string;
+    location?: string;
+    upi?: string;
+  }   
 
   function generateUsername(name: string) {
     if (!name) return "user" + Math.floor(Math.random() * 10000);
@@ -96,19 +103,19 @@ export default function Home() {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load saved profile from localStorage
-  useEffect(() => {
-    const storedUser = localStorage.getItem("userProfile");
-    if (storedUser) setUser(JSON.parse(storedUser));
-    else {
-      const defaultUser = {
-        ...user,
-        username: generateUsername(user.name),
-      };
-      setUser(defaultUser);
-      localStorage.setItem("userProfile", JSON.stringify(defaultUser));
-    }
-  }, []);  
+  // // Load saved profile from localStorage
+  // useEffect(() => {
+  //   const storedUser = localStorage.getItem("userProfile");
+  //   if (storedUser) setUser(JSON.parse(storedUser));
+  //   else {
+  //     const defaultUser = {
+  //       ...user,
+  //       username: generateUsername(user.name),
+  //     };
+  //     setUser(defaultUser);
+  //     localStorage.setItem("userProfile", JSON.stringify(defaultUser));
+  //   }
+  // }, []);  
 
   // Persist profile changes
   useEffect(() => {

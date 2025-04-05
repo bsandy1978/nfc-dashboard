@@ -1,29 +1,14 @@
 // pages/p/[id].tsx
-
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
-
-interface UserProfile {
-  _id: string;
-  name?: string;
-  title?: string;
-  subtitle?: string;
-  avatar?: string;
-  email?: string;
-  instagram?: string;
-  linkedin?: string;
-  twitter?: string;
-  website?: string;
-  location?: string;
-  upi?: string;
-}
+import Home from '../index'; // Using your existing UI as a base
 
 export default function ProfilePage() {
   const router = useRouter();
   const { id } = router.query;
 
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profile, setProfile] = useState(null);
   const [isOwner, setIsOwner] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -35,11 +20,13 @@ export default function ProfilePage() {
         const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/profile/${id}`);
         setProfile(res.data);
 
-        const localOwner = localStorage.getItem(`nfc-owner-${id}`);
+        const key = `nfc-owner-${id}`;
+        const localOwner = localStorage.getItem(key);
         if (localOwner === 'true') {
           setIsOwner(true);
         } else if (localOwner === null) {
-          localStorage.setItem(`nfc-owner-${id}`, 'true');
+          // First-time viewer
+          localStorage.setItem(key, 'true');
           setIsOwner(true);
         }
       } catch (err) {
@@ -52,54 +39,8 @@ export default function ProfilePage() {
     fetchProfile();
   }, [id]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!profile) return;
-    setProfile({ ...profile, [e.target.name]: e.target.value });
-  };
+  if (loading) return <div className="p-10 text-center text-gray-500">Loading...</div>;
+  if (!profile) return <div className="p-10 text-center text-red-500">Profile not found.</div>;
 
-  const handleSave = async () => {
-    if (!profile) return;
-    try {
-      await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/profile/${id}`, profile);
-      alert('Profile updated!');
-    } catch (err) {
-      alert('Save failed.');
-    }
-  };
-
-  if (loading) return <div>Loading...</div>;
-  if (!profile) return <div>Profile not found</div>;
-
-  return (
-    <div className="p-6 max-w-xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">{isOwner ? 'Edit' : 'View'} Profile</h1>
-
-      <div className="space-y-4">
-        {['name', 'title', 'subtitle', 'email', 'linkedin', 'instagram', 'twitter', 'website', 'location', 'upi'].map((field) => (
-          <div key={field}>
-            <label className="block text-sm font-medium capitalize">{field}</label>
-            {isOwner ? (
-              <input
-                name={field}
-                value={profile[field as keyof UserProfile] || ''}
-                onChange={handleChange}
-                className="w-full border rounded px-3 py-2"
-              />
-            ) : (
-              <p className="text-gray-700">{profile[field as keyof UserProfile]}</p>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {isOwner && (
-        <button
-          onClick={handleSave}
-          className="mt-6 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          Save Profile
-        </button>
-      )}
-    </div>
-  );
+  return <Home initialData={profile} initialEditMode={isOwner} />;
 }
