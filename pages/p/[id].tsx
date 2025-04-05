@@ -2,13 +2,29 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
-import Home from '../index'; // Using your existing UI as a base
+import Home from '../index';
+
+interface UserProfileData {
+  _id: string;
+  username?: string;
+  name?: string;
+  title?: string;
+  subtitle?: string;
+  avatar?: string;
+  email?: string;
+  instagram?: string;
+  linkedin?: string;
+  twitter?: string;
+  website?: string;
+  location?: string;
+  upi?: string;
+}
 
 export default function ProfilePage() {
   const router = useRouter();
   const { id } = router.query;
 
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile] = useState<UserProfileData | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -18,19 +34,24 @@ export default function ProfilePage() {
     const fetchProfile = async () => {
       try {
         const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/profile/${id}`);
-        setProfile(res.data);
+        const data = res.data;
+        setProfile(data);
 
-        const key = `nfc-owner-${id}`;
-        const localOwner = localStorage.getItem(key);
-        if (localOwner === 'true') {
+        // Ownership locking logic
+        const localKey = `nfc-owner-${id}`;
+        const claimed = localStorage.getItem(localKey);
+
+        if (claimed === 'true') {
           setIsOwner(true);
-        } else if (localOwner === null) {
-          // First-time viewer
-          localStorage.setItem(key, 'true');
+        } else if (claimed === null) {
+          localStorage.setItem(localKey, 'true'); // First visit on this device
           setIsOwner(true);
+        } else {
+          setIsOwner(false);
         }
       } catch (err) {
         console.error('Profile fetch error:', err);
+        setProfile(null);
       } finally {
         setLoading(false);
       }

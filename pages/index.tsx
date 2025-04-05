@@ -380,6 +380,7 @@ END:VCARD`.trim();
 
             {/* Action Buttons */}
             <div className="flex w-full gap-2 mt-3">
+            {initialEditMode && (
               <button
                 onClick={handleEditButtonClick}
                 title="Edit Profile"
@@ -387,6 +388,8 @@ END:VCARD`.trim();
               >
                 <FaEdit className="text-lg" /> {editMode ? "Save" : "Edit Profile"}
               </button>
+            )}
+
               <button
                 onClick={handleDownloadVCF}
                 title="Download Contact as VCF"
