@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import {
-  FaMoon, FaSun, FaDownload, FaEdit, FaInstagram, FaLinkedin,
-  FaTwitter, FaGlobe, FaMapMarkerAlt, FaMoneyBill, FaShareAlt, FaSpinner,
+  FaMoon, FaSun, FaDownload, FaEdit, FaInstagram, FaLinkedin, FaTwitter,
+  FaGlobe, FaMapMarkerAlt, FaMoneyBill, FaShareAlt, FaSpinner,
 } from "react-icons/fa";
 import { EnvelopeIcon } from "@heroicons/react/24/outline";
 import { QRCodeCanvas } from "qrcode.react";
@@ -35,20 +35,20 @@ interface HomeProps {
 
 export default function Home({ initialData, initialEditMode = true }: HomeProps) {
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-  const [darkMode, setDarkMode] = useState<boolean>(false);
+
+  const [darkMode, setDarkMode] = useState(false);
   const [theme, setTheme] = useState<"default" | "ocean" | "forest" | "sunset">("default");
-  const [editMode, setEditMode] = useState<boolean>(initialEditMode);
-  const [isAvatarUploading, setIsAvatarUploading] = useState<boolean>(false);
-  const [showQRCode, setShowQRCode] = useState<boolean>(false);
+  const [editMode, setEditMode] = useState(initialEditMode);
+  const [isOwner, setIsOwner] = useState(false);
+  const [isAvatarUploading, setIsAvatarUploading] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
   const [appointmentConfirmed, setAppointmentConfirmed] = useState<AppointmentData | null>(null);
-  const [appointmentError, setAppointmentError] = useState<string>("");
-  const [appointmentRequestSent, setAppointmentRequestSent] = useState<boolean>(false);
-  const [pendingAppointment, setPendingAppointment] = useState<AppointmentData>({
-    name: "", email: "", date: "", time: ""
-  });
-  const [appointment, setAppointment] = useState<AppointmentData>({
-    name: "", email: "", date: "", time: ""
-  });
+  const [appointmentError, setAppointmentError] = useState("");
+  const [appointmentRequestSent, setAppointmentRequestSent] = useState(false);
+  const [pendingAppointment, setPendingAppointment] = useState<AppointmentData>({ name: "", email: "", date: "", time: "" });
+  const [appointment, setAppointment] = useState<AppointmentData>({ name: "", email: "", date: "", time: "" });
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [user, setUser] = useState<Partial<UserProfileData>>(initialData ?? {
     name: "Alex Doe",
@@ -64,19 +64,32 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
     upi: "alex@upi",
   });
 
-  const [isOwner, setIsOwner] = useState<boolean>(false); // ✅ NEW
+  const generateUsername = (name: string) => {
+    return name.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 15) + Math.floor(Math.random() * 1000);
+  };
+
+  useEffect(() => {
+    console.log("Current username:", user.username);
+  }, [user?.username]);
+
+  useEffect(() => {
+    if (!user?.username && user.name) {
+      const newUsername = generateUsername(user.name);
+      setUser((prev) => ({ ...prev, username: newUsername }));
+    }
+  }, [user?.username, user.name]);
 
   useEffect(() => {
     if (!user?.username) return;
     const ownerKey = `${user.username}_owner`;
-    const existing = localStorage.getItem(ownerKey);
+    const existingOwner = localStorage.getItem(ownerKey);
 
-    if (existing === "true") {
+    if (existingOwner === "true") {
       setIsOwner(true);
       setEditMode(true);
     } else {
-      if (!existing) {
-        localStorage.setItem(ownerKey, "true"); // first device
+      if (!existingOwner) {
+        localStorage.setItem(ownerKey, "true");
         setIsOwner(true);
         setEditMode(true);
       } else {
@@ -84,7 +97,7 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
         setEditMode(false);
       }
     }
-  }, [user?.username]); // ✅ NEW
+  }, [user?.username]);
 
   useEffect(() => {
     localStorage.setItem("userProfile", JSON.stringify(user));
@@ -94,19 +107,12 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
     document.documentElement.classList.toggle("dark", darkMode);
   }, [darkMode]);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   const themeClasses: Record<typeof theme, string> = {
     default: "bg-gradient-to-b from-gray-100 to-blue-100 dark:from-gray-900 dark:to-gray-800",
     ocean: "bg-gradient-to-b from-blue-200 to-blue-500 dark:from-blue-800 dark:to-blue-900",
     forest: "bg-gradient-to-b from-green-200 to-green-500 dark:from-green-800 dark:to-green-900",
     sunset: "bg-gradient-to-b from-yellow-200 to-pink-500 dark:from-yellow-800 dark:to-pink-900",
   };
-
-  function generateUsername(name: string) {
-    if (!name) return "user" + Math.floor(Math.random() * 10000);
-    return name.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 15) + Math.floor(Math.random() * 1000);
-  }
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -130,26 +136,19 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
       const res = await fetch(`${API_BASE_URL}/api/profiles`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...user,
-          username: user.username || generateUsername(user.name),
-        }),
+        body: JSON.stringify({ ...user, username: user.username || generateUsername(user.name || "") }),
       });
-
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error((data as any).error || "Failed to save profile");
-      }
-      alert("Profile saved!");
-    } catch (error: any) {
-      console.error("Save error:", error);
-      alert("Error saving profile: " + error.message);
+      if (!res.ok) throw new Error(data.error || "Failed to save profile");
+      alert("Profile saved successfully!");
+    } catch (err: any) {
+      alert("Error saving profile: " + err.message);
     }
   };
 
   const handleEditButtonClick = () => {
     if (!isOwner) {
-      alert("You are not the owner. This is view-only mode.");
+      alert("You are not the owner of this profile. This is view-only mode.");
       return;
     }
     if (editMode) {
@@ -260,7 +259,6 @@ END:VCARD`.trim();
               value={theme}
               onChange={(e) => setTheme(e.target.value as typeof theme)}
               className="p-1 rounded border dark:bg-gray-800 dark:text-white"
-              aria-label="Select Theme"
             >
               <option value="default">Default</option>
               <option value="ocean">Ocean</option>
@@ -268,17 +266,13 @@ END:VCARD`.trim();
               <option value="sunset">Sunset</option>
             </select>
           </div>
-          <button
-            onClick={() => setDarkMode(!darkMode)}
-            className="text-2xl hover:text-yellow-500 dark:hover:text-yellow-300 transition"
-            title="Toggle Dark Mode"
-          >
+          <button onClick={() => setDarkMode(!darkMode)} className="text-2xl transition">
             {darkMode ? <FaSun /> : <FaMoon />}
           </button>
         </div>
 
-        {/* Card UI */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-4 sm:p-6 ring-1 ring-blue-100 dark:ring-blue-900">
+        {/* Profile Card */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-4 ring-1 ring-blue-100 dark:ring-blue-900">
           <div className="flex flex-col items-center space-y-2">
             <div className="relative">
               <img
@@ -307,10 +301,12 @@ END:VCARD`.trim();
 
             {/* Action Buttons */}
             <div className="flex w-full gap-2 mt-3">
-              {isOwner && (
+              {isOwner ? (
                 <button onClick={handleEditButtonClick} className="flex-1 text-sm bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-2 rounded-md flex justify-center items-center gap-1">
-                  <FaEdit /> {editMode ? "Save" : "Edit"}
+                  <FaEdit className="text-lg" /> {editMode ? "Save" : "Edit Profile"}
                 </button>
+              ) : (
+                <p className="text-xs text-red-500 text-center italic">View-only mode</p>
               )}
               <button onClick={handleDownloadVCF} className="flex-1 border border-blue-500 text-blue-500 px-3 py-2 rounded-md flex items-center justify-center">
                 <FaDownload />
@@ -333,146 +329,31 @@ END:VCARD`.trim();
               {showQRCode ? "Hide QR Code" : "Show QR Code"}
             </button>
           </div>
-          {/* Contact Details */}
+
+          {/* Contact Info */}
           <div className="mt-6 divide-y divide-gray-200 dark:divide-gray-700">
-            <ContactRow
-              icon={<EnvelopeIcon className="w-6 h-6 text-blue-500 dark:text-blue-400" />}
-              label="Email"
-              value={user.email}
-              onChange={(val) => handleChange("email", val)}
-              edit={editMode}
-              link={`mailto:${user.email}`}
-            />
-            <ContactRow
-              icon={<FaInstagram className="text-2xl text-pink-600 dark:text-pink-400" />}
-              label="Instagram"
-              value={user.instagram}
-              onChange={(val) => handleChange("instagram", val)}
-              edit={editMode}
-              link={`https://instagram.com/${user.instagram.replace("@", "")}`}
-            />
-            <ContactRow
-              icon={<FaLinkedin className="text-2xl text-blue-700 dark:text-blue-400" />}
-              label="LinkedIn"
-              value={user.linkedin}
-              onChange={(val) => handleChange("linkedin", val)}
-              edit={editMode}
-              link={`https://linkedin.com/in/${user.linkedin}`}
-            />
-            <ContactRow
-              icon={<FaTwitter className="text-2xl text-sky-400 dark:text-sky-300" />}
-              label="Twitter"
-              value={user.twitter}
-              onChange={(val) => handleChange("twitter", val)}
-              edit={editMode}
-              link={`https://twitter.com/${user.twitter.replace("@", "")}`}
-            />
-            <ContactRow
-              icon={<FaGlobe className="text-2xl text-gray-500 dark:text-gray-300" />}
-              label="Website"
-              value={user.website}
-              onChange={(val) => handleChange("website", val)}
-              edit={editMode}
-              link={user.website.startsWith("http") ? user.website : `https://${user.website}`}
-            />
-            <ContactRow
-              icon={<FaMapMarkerAlt className="text-2xl text-red-500 dark:text-red-400" />}
-              label="Location"
-              value={user.location}
-              onChange={(val) => handleChange("location", val)}
-              edit={editMode}
-              link={`https://maps.google.com/?q=${user.location}`}
-            />
-            <ContactRow
-              icon={<FaMoneyBill className="text-2xl text-green-500 dark:text-green-400" />}
-              label="UPI"
-              value={user.upi}
-              onChange={(val) => handleChange("upi", val)}
-              edit={editMode}
-              link={`upi://pay?pa=${user.upi}`}
-            />
+            <ContactRow icon={<EnvelopeIcon className="w-6 h-6 text-blue-500" />} label="Email" value={user.email} onChange={(val) => handleChange("email", val)} edit={editMode} link={`mailto:${user.email}`} />
+            <ContactRow icon={<FaInstagram className="text-2xl text-pink-600" />} label="Instagram" value={user.instagram} onChange={(val) => handleChange("instagram", val)} edit={editMode} link={`https://instagram.com/${user.instagram?.replace("@", "")}`} />
+            <ContactRow icon={<FaLinkedin className="text-2xl text-blue-700" />} label="LinkedIn" value={user.linkedin} onChange={(val) => handleChange("linkedin", val)} edit={editMode} link={`https://linkedin.com/in/${user.linkedin}`} />
+            <ContactRow icon={<FaTwitter className="text-2xl text-sky-400" />} label="Twitter" value={user.twitter} onChange={(val) => handleChange("twitter", val)} edit={editMode} link={`https://twitter.com/${user.twitter?.replace("@", "")}`} />
+            <ContactRow icon={<FaGlobe className="text-2xl text-gray-500" />} label="Website" value={user.website} onChange={(val) => handleChange("website", val)} edit={editMode} link={`https://${user.website}`} />
+            <ContactRow icon={<FaMapMarkerAlt className="text-2xl text-red-500" />} label="Location" value={user.location} onChange={(val) => handleChange("location", val)} edit={editMode} link={`https://maps.google.com/?q=${user.location}`} />
+            <ContactRow icon={<FaMoneyBill className="text-2xl text-green-500" />} label="UPI" value={user.upi} onChange={(val) => handleChange("upi", val)} edit={editMode} link={`upi://pay?pa=${user.upi}`} />
           </div>
 
-          {/* Appointment Section */}
+          {/* Appointment Form */}
           <div className="mt-6 border-t pt-4">
-            <h3 className="text-md font-semibold mb-2 text-gray-700 dark:text-gray-200">Schedule a Call</h3>
-            {appointmentConfirmed ? (
-              <div className="p-3 bg-green-50 dark:bg-green-900 rounded-md">
-                <p className="text-sm font-semibold text-green-700 dark:text-green-200">
-                  Appointment booked for {appointmentConfirmed.date} at {appointmentConfirmed.time}!
-                </p>
-                <a
-                  href={generateGoogleCalendarLink(appointmentConfirmed)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-2 inline-block text-xs text-blue-500 hover:underline"
-                >
-                  Add to Google Calendar
-                </a>
-                <button
-                  onClick={() => setAppointmentConfirmed(null)}
-                  className="ml-2 text-xs text-red-500 hover:underline"
-                >
-                  Dismiss
-                </button>
+            <h3 className="text-md font-semibold mb-2">Schedule a Call</h3>
+            <form onSubmit={handleAppointmentSubmit} className="space-y-3">
+              <input type="text" placeholder="Your Name" value={appointment.name} onChange={(e) => setAppointment({ ...appointment, name: e.target.value })} className="w-full text-sm p-2 border rounded-md" required />
+              <input type="email" placeholder="Your Email" value={appointment.email} onChange={(e) => setAppointment({ ...appointment, email: e.target.value })} className="w-full text-sm p-2 border rounded-md" required />
+              <div className="flex gap-2">
+                <input type="date" value={appointment.date} onChange={(e) => setAppointment({ ...appointment, date: e.target.value })} className="w-1/2 text-sm p-2 border rounded-md" required />
+                <input type="time" value={appointment.time} onChange={(e) => setAppointment({ ...appointment, time: e.target.value })} className="w-1/2 text-sm p-2 border rounded-md" required />
               </div>
-            ) : appointmentRequestSent ? (
-              <div className="p-3 bg-yellow-50 dark:bg-yellow-900 rounded-md">
-                <p className="text-sm font-semibold text-yellow-700 dark:text-yellow-200">
-                  Appointment request sent to {pendingAppointment.email}. Please confirm.
-                </p>
-                <button
-                  onClick={handleAppointmentConfirmation}
-                  className="mt-2 w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm py-2 rounded-md hover:brightness-110 transition duration-300"
-                >
-                  I Confirm Appointment
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleAppointmentSubmit} className="space-y-3">
-                <input
-                  type="text"
-                  placeholder="Your Name"
-                  value={appointment.name}
-                  onChange={(e) => setAppointment({ ...appointment, name: e.target.value })}
-                  className="w-full text-sm p-2 border rounded-md dark:bg-gray-900"
-                  required
-                />
-                <input
-                  type="email"
-                  placeholder="Your Email"
-                  value={appointment.email}
-                  onChange={(e) => setAppointment({ ...appointment, email: e.target.value })}
-                  className="w-full text-sm p-2 border rounded-md dark:bg-gray-900"
-                  required
-                />
-                <div className="flex gap-2">
-                  <input
-                    type="date"
-                    value={appointment.date}
-                    onChange={(e) => setAppointment({ ...appointment, date: e.target.value })}
-                    className="w-1/2 text-sm p-2 border rounded-md dark:bg-gray-900"
-                    required
-                  />
-                  <input
-                    type="time"
-                    value={appointment.time}
-                    onChange={(e) => setAppointment({ ...appointment, time: e.target.value })}
-                    className="w-1/2 text-sm p-2 border rounded-md dark:bg-gray-900"
-                    required
-                  />
-                </div>
-                {appointmentError && (
-                  <p className="text-xs text-red-500">{appointmentError}</p>
-                )}
-                <button
-                  type="submit"
-                  className="w-full mt-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm py-2 rounded-md hover:brightness-110 transition duration-300"
-                >
-                  Book Appointment
-                </button>
-              </form>
-            )}
+              {appointmentError && <p className="text-xs text-red-500">{appointmentError}</p>}
+              <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm py-2 rounded-md">Book Appointment</button>
+            </form>
           </div>
         </div>
       </div>
@@ -491,18 +372,14 @@ type ContactRowProps = {
 
 function ContactRow({ icon, label, value, onChange, edit, link }: ContactRowProps) {
   return (
-    <div className="flex items-center gap-3 py-3 group hover:bg-blue-50 dark:hover:bg-blue-900 transition rounded-lg px-3">
-      <div className="text-2xl w-10 h-10 flex justify-center items-center rounded-full bg-white dark:bg-gray-700 shadow-md">
+    <div className="flex items-center gap-3 py-3 group hover:bg-blue-50 transition px-3">
+      <div className="text-2xl w-10 h-10 flex justify-center items-center rounded-full bg-white shadow-md">
         {icon}
       </div>
       <div className="flex-1">
-        <p className="text-sm font-semibold dark:text-white mb-1">{label}</p>
+        <p className="text-sm font-semibold mb-1">{label}</p>
         {edit ? (
-          <input
-            className="text-xs bg-transparent border-b w-full dark:text-white focus:outline-none"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-          />
+          <input className="text-xs bg-transparent border-b w-full focus:outline-none" value={value} onChange={(e) => onChange(e.target.value)} />
         ) : (
           <a href={link} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline">
             {value}
@@ -512,4 +389,3 @@ function ContactRow({ icon, label, value, onChange, edit, link }: ContactRowProp
     </div>
   );
 }
-
