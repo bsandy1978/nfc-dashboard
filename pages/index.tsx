@@ -99,17 +99,16 @@ export default function Home() {
   // Load saved profile from localStorage
   useEffect(() => {
     const storedUser = localStorage.getItem("userProfile");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    } else {
-      const newUser = {
+    if (storedUser) setUser(JSON.parse(storedUser));
+    else {
+      const defaultUser = {
         ...user,
-        username: generateUsername(""),
+        username: generateUsername(user.name),
       };
-      setUser(newUser);
-      localStorage.setItem("userProfile", JSON.stringify(newUser));
+      setUser(defaultUser);
+      localStorage.setItem("userProfile", JSON.stringify(defaultUser));
     }
-  }, []);
+  }, []);  
 
   // Persist profile changes
   useEffect(() => {
@@ -222,14 +221,12 @@ END:VCARD`.trim();
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: user.username, // ✅ must be present
           name: appointment.name,
           email: appointment.email,
           date: appointment.date,
           time: appointment.time,
         }),
       });
-      
 
       if (!res.ok) {
         const data = await res.json();
