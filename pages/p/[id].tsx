@@ -18,6 +18,7 @@ interface UserProfileData {
   website?: string;
   location?: string;
   upi?: string;
+  ownerDeviceId?: string;
 }
 
 export default function ProfilePage() {
@@ -25,30 +26,26 @@ export default function ProfilePage() {
   const { id } = router.query;
 
   const [profile, setProfile] = useState<UserProfileData | null>(null);
-  const [isOwner, setIsOwner] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isOwner, setIsOwner] = useState(false);
 
   useEffect(() => {
     if (!id || typeof id !== 'string') return;
 
     const fetchProfile = async () => {
       try {
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/profile/${id}`);
-        const data = res.data;
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/profiles/${id}`);
+        const data: UserProfileData = res.data;
         setProfile(data);
 
-        // Ownership locking logic
-        const localKey = `nfc-owner-${id}`;
-        const claimed = localStorage.getItem(localKey);
-
-        if (claimed === 'true') {
-          setIsOwner(true);
-        } else if (claimed === null) {
-          localStorage.setItem(localKey, 'true'); // First visit on this device
-          setIsOwner(true);
-        } else {
-          setIsOwner(false);
+        // Get or generate deviceId
+        let deviceId = localStorage.getItem("deviceId");
+        if (!deviceId) {
+          deviceId = crypto.randomUUID();
+          localStorage.setItem("deviceId", deviceId);
         }
+
+        setIsOwner(data.ownerDeviceId === deviceId);
       } catch (err) {
         console.error('Profile fetch error:', err);
         setProfile(null);
