@@ -17,7 +17,6 @@ import { EnvelopeIcon } from "@heroicons/react/24/outline";
 import { QRCodeCanvas } from "qrcode.react";
 
 interface UserProfileData {
-  username?: string;
   name: string;
   title: string;
   subtitle: string;
@@ -29,6 +28,7 @@ interface UserProfileData {
   website: string;
   location: string;
   upi: string;
+  deviceId: string;  // Unique ID for the device (used for identification)
 }
 
 interface AppointmentData {
@@ -52,21 +52,20 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
   const [showQRCode, setShowQRCode] = useState<boolean>(false);
   const [appointmentConfirmed, setAppointmentConfirmed] = useState<AppointmentData | null>(null);
   const [appointmentError, setAppointmentError] = useState<string>("");
-  const [appointmentRequestSent, setAppointmentRequestSent] = useState<boolean>(false);
-  const [pendingAppointment, setPendingAppointment] = useState<AppointmentData>({
-    name: "",
-    email: "",
-    date: "",
-    time: "",
-  });
-  const [appointment, setAppointment] = useState<AppointmentData>({
-    name: "",
-    email: "",
-    date: "",
-    time: "",
-  });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Generate and store a unique device ID (only once per device)
+  const [deviceId] = useState(() => {
+    const storedDeviceId = localStorage.getItem("deviceId");
+    if (storedDeviceId) {
+      return storedDeviceId;
+    } else {
+      const newDeviceId = crypto.randomUUID();
+      localStorage.setItem("deviceId", newDeviceId);
+      return newDeviceId;
+    }
+  });
 
   // Load saved profile from localStorage or set initial user profile
   const [user, setUser] = useState<Partial<UserProfileData>>(
@@ -82,6 +81,7 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
       website: "https://www.alexdoe.com",
       location: "Los Angeles, CA",
       upi: "alex@upi",
+      deviceId: deviceId,  // Store the deviceId as part of the user profile
     }
   );
 
@@ -143,7 +143,7 @@ END:VCARD`.trim();
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...user,
-          username: user.username || generateUsername(user.name),
+          deviceId: user.deviceId || deviceId,  // Use deviceId for uniqueness
         }),
       });
 
