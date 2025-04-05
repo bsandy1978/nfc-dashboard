@@ -93,6 +93,9 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
     time: "",
   });
 
+  // Add state for tracking appointment request sent
+  const [appointmentRequestSent, setAppointmentRequestSent] = useState<boolean>(false);
+
   useEffect(() => {
     // Persist profile changes in localStorage
     localStorage.setItem("userProfile", JSON.stringify(user));
@@ -212,6 +215,7 @@ END:VCARD`.trim();
         return;
       }
 
+      setAppointmentRequestSent(true); // Set appointmentRequestSent to true once the request is sent
       alert("Appointment request sent!");
       setAppointment({ name: "", email: "", date: "", time: "" });
     } catch (error) {
@@ -222,7 +226,7 @@ END:VCARD`.trim();
 
   const handleAppointmentConfirmation = () => {
     setAppointmentConfirmed({ ...appointment });
-    setAppointmentRequestSent(false);
+    setAppointmentRequestSent(false); // Reset the flag after confirmation
     setPendingAppointment({ name: "", email: "", date: "", time: "" });
   };
 
@@ -533,5 +537,39 @@ END:VCARD`}
         </div>
       </div>
     </main>
+  );
+}
+
+type ContactRowProps = {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  edit: boolean;
+  link: string;
+};
+
+function ContactRow({ icon, label, value, onChange, edit, link }: ContactRowProps) {
+  return (
+    <div className="flex items-center gap-3 py-3 group hover:bg-blue-50 dark:hover:bg-blue-900 transition rounded-lg px-3">
+      <div className="text-2xl w-10 h-10 flex justify-center items-center rounded-full bg-white dark:bg-gray-700 shadow-md group-hover:shadow-[0_0_10px_rgba(0,0,0,0.5)] transition duration-300">
+        {icon}
+      </div>
+      <div className="flex-1">
+        <p className="text-sm font-semibold dark:text-white mb-1">{label}</p>
+        {edit ? (
+          <input
+            className="text-xs bg-transparent border-b w-full dark:text-white focus:outline-none"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            aria-label={label}
+          />
+        ) : (
+          <a href={link} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline">
+            {value}
+          </a>
+        )}
+      </div>
+    </div>
   );
 }
