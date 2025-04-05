@@ -480,7 +480,7 @@ END:VCARD`}
             ) : appointmentRequestSent ? (
               <div className="p-3 bg-yellow-50 dark:bg-yellow-900 rounded-md">
                 <p className="text-sm font-semibold text-yellow-700 dark:text-yellow-200">
-                  Appointment request sent to {pendingAppointment.email}. Please check your email and then click "I Confirm Appointment".
+                  Appointment request sent to {appointment.name}. Please check your email and confirm.
                 </p>
                 <button
                   onClick={handleAppointmentConfirmation}
