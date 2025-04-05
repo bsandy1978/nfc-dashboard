@@ -17,7 +17,7 @@ import { EnvelopeIcon } from "@heroicons/react/24/outline";
 import { QRCodeCanvas } from "qrcode.react";
 
 interface UserProfileData {
-  username?: string;  // ✅ Add this line
+  username?: string;
   name: string;
   title: string;
   subtitle: string;
@@ -44,22 +44,12 @@ interface HomeProps {
 }
 
 export default function Home({ initialData, initialEditMode = true }: HomeProps) {
-
-  // Use NEXT_PUBLIC_API_BASE_URL so it is available on the client-side.
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-
-  // Theme & display states
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [theme, setTheme] = useState<"default" | "ocean" | "forest" | "sunset">("default");
-
-  // Edit mode and image uploading states
   const [editMode, setEditMode] = useState<boolean>(initialEditMode);
   const [isAvatarUploading, setIsAvatarUploading] = useState<boolean>(false);
-
-  // QR Code display state
   const [showQRCode, setShowQRCode] = useState<boolean>(false);
-
-  // Appointment states
   const [appointmentConfirmed, setAppointmentConfirmed] = useState<AppointmentData | null>(null);
   const [appointmentError, setAppointmentError] = useState<string>("");
   const [appointmentRequestSent, setAppointmentRequestSent] = useState<boolean>(false);
@@ -76,31 +66,9 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
     time: "",
   });
 
-  function generateUsername(name: string) {
-    if (!name) return "user" + Math.floor(Math.random() * 10000);
-    return name
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "")   // remove special chars
-      .slice(0, 15) +               // limit to 15 chars
-      Math.floor(Math.random() * 1000); // add randomness
-  }
-  
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // // Load saved profile from localStorage
-  // useEffect(() => {
-  //   const storedUser = localStorage.getItem("userProfile");
-  //   if (storedUser) setUser(JSON.parse(storedUser));
-  //   else {
-  //     const defaultUser = {
-  //       ...user,
-  //       username: generateUsername(user.name),
-  //     };
-  //     setUser(defaultUser);
-  //     localStorage.setItem("userProfile", JSON.stringify(defaultUser));
-  //   }
-  // }, []);  
-  
+  // Load saved profile from localStorage or set initial user profile
   const [user, setUser] = useState<Partial<UserProfileData>>(
     initialData ?? {
       name: "Alex Doe",
@@ -115,10 +83,10 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
       location: "Los Angeles, CA",
       upi: "alex@upi",
     }
-  );  
-  
-  // Persist profile changes
+  );
+
   useEffect(() => {
+    // Persist profile changes in localStorage
     localStorage.setItem("userProfile", JSON.stringify(user));
   }, [user]);
 
@@ -129,14 +97,10 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
 
   // Theme background classes
   const themeClasses: Record<typeof theme, string> = {
-    default:
-      "bg-gradient-to-b from-gray-100 to-blue-100 dark:from-gray-900 dark:to-gray-800",
-    ocean:
-      "bg-gradient-to-b from-blue-200 to-blue-500 dark:from-blue-800 dark:to-blue-900",
-    forest:
-      "bg-gradient-to-b from-green-200 to-green-500 dark:from-green-800 dark:to-green-900",
-    sunset:
-      "bg-gradient-to-b from-yellow-200 to-pink-500 dark:from-yellow-800 dark:to-pink-900",
+    default: "bg-gradient-to-b from-gray-100 to-blue-100 dark:from-gray-900 dark:to-gray-800",
+    ocean: "bg-gradient-to-b from-blue-200 to-blue-500 dark:from-blue-800 dark:to-blue-900",
+    forest: "bg-gradient-to-b from-green-200 to-green-500 dark:from-green-800 dark:to-green-900",
+    sunset: "bg-gradient-to-b from-yellow-200 to-pink-500 dark:from-yellow-800 dark:to-pink-900",
   };
 
   const handleDownloadVCF = () => {
@@ -181,7 +145,7 @@ END:VCARD`.trim();
           ...user,
           username: user.username || generateUsername(user.name),
         }),
-      });      
+      });
 
       let data = {};
       try {
@@ -213,7 +177,6 @@ END:VCARD`.trim();
     }
   };
 
-  // Appointment submission: call external backend API
   const handleAppointmentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAppointmentError("");
@@ -222,7 +185,7 @@ END:VCARD`.trim();
       setAppointmentError("Please choose a future date and time for your appointment.");
       return;
     }
-    
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/appointments`, {
         method: "POST",
@@ -249,14 +212,12 @@ END:VCARD`.trim();
     }
   };
 
-  // Simulate the confirmation step
   const handleAppointmentConfirmation = () => {
     setAppointmentConfirmed({ ...pendingAppointment });
     setAppointmentRequestSent(false);
     setPendingAppointment({ name: "", email: "", date: "", time: "" });
   };
 
-  // Generate a Google Calendar event link (30 minutes duration)
   const generateGoogleCalendarLink = (appt: AppointmentData) => {
     const startDateTime = new Date(`${appt.date}T${appt.time}`);
     const endDateTime = new Date(startDateTime.getTime() + 30 * 60000);
@@ -296,7 +257,7 @@ END:VCARD`.trim();
   };
 
   return (
-    <main className={`min-h-screen ${themeClasses} transition-colors text-gray-800 dark:text-gray-100`}>
+    <main className={`min-h-screen ${themeClasses[theme]} transition-colors text-gray-800 dark:text-gray-100`}>
       <div className="max-w-md mx-auto p-4">
         {/* Top Controls */}
         <div className="mb-4 flex flex-row justify-between items-center">
@@ -307,10 +268,8 @@ END:VCARD`.trim();
             <select
               id="themeSelect"
               value={theme}
-              onChange={(e) =>
-                setTheme(e.target.value as "default" | "ocean" | "forest" | "sunset")
-              }
-                            className="p-1 rounded border dark:bg-gray-800 dark:text-white"
+              onChange={(e) => setTheme(e.target.value as "default" | "ocean" | "forest" | "sunset")}
+              className="p-1 rounded border dark:bg-gray-800 dark:text-white"
               aria-label="Select Theme"
             >
               <option value="default">Default</option>
@@ -380,16 +339,15 @@ END:VCARD`.trim();
 
             {/* Action Buttons */}
             <div className="flex w-full gap-2 mt-3">
-            {initialEditMode && (
-              <button
-                onClick={handleEditButtonClick}
-                title="Edit Profile"
-                className="flex-1 text-sm bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-2 rounded-md flex justify-center items-center gap-1 shadow-md hover:shadow-xl hover:scale-105 transition duration-300"
-              >
-                <FaEdit className="text-lg" /> {editMode ? "Save" : "Edit Profile"}
-              </button>
-            )}
-
+              {initialEditMode && (
+                <button
+                  onClick={handleEditButtonClick}
+                  title="Edit Profile"
+                  className="flex-1 text-sm bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-2 rounded-md flex justify-center items-center gap-1 shadow-md hover:shadow-xl hover:scale-105 transition duration-300"
+                >
+                  <FaEdit className="text-lg" /> {editMode ? "Save" : "Edit Profile"}
+                </button>
+              )}
               <button
                 onClick={handleDownloadVCF}
                 title="Download Contact as VCF"
