@@ -76,22 +76,6 @@ export default function Home({ initialData, initialEditMode = false }: HomeProps
     time: "",
   });
 
-  // User profile state
-  interface UserProfileData {
-    username?: string;
-    name?: string;
-    title?: string;
-    subtitle?: string;
-    avatar?: string;
-    email?: string;
-    instagram?: string;
-    linkedin?: string;
-    twitter?: string;
-    website?: string;
-    location?: string;
-    upi?: string;
-  }   
-
   function generateUsername(name: string) {
     if (!name) return "user" + Math.floor(Math.random() * 10000);
     return name
@@ -116,7 +100,23 @@ export default function Home({ initialData, initialEditMode = false }: HomeProps
   //     localStorage.setItem("userProfile", JSON.stringify(defaultUser));
   //   }
   // }, []);  
-
+  
+  const [user, setUser] = useState<Partial<UserProfileData>>(
+    initialData ?? {
+      name: "Alex Doe",
+      title: "Networking Expert",
+      subtitle: "Hair stylist from Los Angeles, CA",
+      avatar: "https://i.pravatar.cc/150?img=65",
+      email: "email@email.com",
+      instagram: "@arley",
+      linkedin: "arley",
+      twitter: "@alexdoe",
+      website: "https://www.alexdoe.com",
+      location: "Los Angeles, CA",
+      upi: "alex@upi",
+    }
+  );  
+  
   // Persist profile changes
   useEffect(() => {
     localStorage.setItem("userProfile", JSON.stringify(user));
