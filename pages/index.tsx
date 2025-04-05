@@ -39,11 +39,6 @@ const generateDeviceId = () => {
   return localStorage.getItem('deviceId') || Math.random().toString(36).substring(2, 15);  // Fallback in case there's no device ID
 };
 
-const Home = ({ initialData, initialEditMode = true }) => {
-  const [user, setUser] = useState(initialData);
-  const [isOwner, setIsOwner] = useState(false);
-  const [deviceId, setDeviceId] = useState(generateDeviceId());
-
 export default function Home({ initialData, initialEditMode = true }: HomeProps) {
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
