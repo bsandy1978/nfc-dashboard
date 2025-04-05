@@ -80,10 +80,15 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
   }, [user?.username, user.name]);
 
   useEffect(() => {
+    // Ensure the username is set before checking for ownership
     if (!user?.username) return;
+  
     const ownerKey = `${user.username}_owner`;
     const existingOwner = localStorage.getItem(ownerKey);
-
+  
+    console.log('Checking ownership for user:', user.username);
+    console.log('Existing owner:', existingOwner);
+  
     if (existingOwner === "true") {
       setIsOwner(true);
       setEditMode(true);
@@ -97,7 +102,7 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
         setEditMode(false);
       }
     }
-  }, [user?.username]);
+  }, [user?.username]);  
 
   useEffect(() => {
     localStorage.setItem("userProfile", JSON.stringify(user));
