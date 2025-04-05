@@ -32,7 +32,7 @@ export default function ProfilePage() {
 
     const fetchProfile = async () => {
       try {
-        const res = await axios.get(`/api/profile/${id}`);
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/profile/${id}`);
         setProfile(res.data);
 
         const localOwner = localStorage.getItem(`nfc-owner-${id}`);
@@ -60,7 +60,7 @@ export default function ProfilePage() {
   const handleSave = async () => {
     if (!profile) return;
     try {
-      await axios.post(`/api/profile/${id}`, profile);
+      await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/profile/${id}`, profile);
       alert('Profile updated!');
     } catch (err) {
       alert('Save failed.');
