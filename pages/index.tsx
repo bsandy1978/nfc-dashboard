@@ -103,7 +103,7 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
     }
   }, []);
 
-  // Helper to generate a username
+  // Helper to generate a username; this will only be used when saving if no username exists.
   const generateUsername = (name: string) => {
     return name.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 15) + Math.floor(Math.random() * 1000);
   };
@@ -112,12 +112,8 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
     console.log("Current username:", user.username);
   }, [user?.username]);
 
-  useEffect(() => {
-    if (!user?.username && user.name) {
-      const newUsername = generateUsername(user.name);
-      setUser((prev) => ({ ...prev, username: newUsername }));
-    }
-  }, [user?.username, user.name]);
+  // Remove auto-generation effect so username isn't created before saving
+  // (Username will be generated in handleSaveProfile if it's not already set.)
 
   // Ownership check: only run on client (using localStorage)
   useEffect(() => {
@@ -186,6 +182,7 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...user,
+          // Only generate a username on save if it's empty:
           username: user.username || generateUsername(user.name || ""),
           deviceId: deviceId,
         }),
