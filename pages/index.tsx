@@ -34,19 +34,11 @@ interface HomeProps {
   initialEditMode?: boolean;
 }
 
-// Generate a unique device ID (could use a library like uuid)
-const generateDeviceId = () => {
-  return localStorage.getItem('deviceId') || Math.random().toString(36).substring(2, 15);
-};
-
 export default function Home({ initialData, initialEditMode = true }: HomeProps) {
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-  // Initialize dark mode from localStorage (if saved) so it persists across sessions.
-  const [darkMode, setDarkMode] = useState(() => {
-    const stored = localStorage.getItem('darkMode');
-    return stored === 'true';
-  });
+  // Client-only state defaults (avoid localStorage access during SSR)
+  const [darkMode, setDarkMode] = useState(false);
   const [theme, setTheme] = useState<"default" | "ocean" | "forest" | "sunset">("default");
   const [editMode, setEditMode] = useState(initialEditMode);
   const [isOwner, setIsOwner] = useState(false);
@@ -57,6 +49,7 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
   const [appointmentRequestSent, setAppointmentRequestSent] = useState(false);
   const [pendingAppointment, setPendingAppointment] = useState<AppointmentData>({ name: "", email: "", date: "", time: "" });
   const [appointment, setAppointment] = useState<AppointmentData>({ name: "", email: "", date: "", time: "" });
+  const [deviceId, setDeviceId] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -74,6 +67,43 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
     upi: "alex@upi",
   });
 
+  // Initialize dark mode from localStorage (client only)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedDarkMode = localStorage.getItem("darkMode");
+      if (savedDarkMode !== null) {
+        setDarkMode(savedDarkMode === "true");
+      }
+    }
+  }, []);
+
+  // Persist dark mode changes and toggle the "dark" class
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("darkMode", darkMode.toString());
+      if (darkMode) {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+    }
+  }, [darkMode]);
+
+  // Initialize deviceId (client only)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedDeviceId = localStorage.getItem("deviceId");
+      if (storedDeviceId) {
+        setDeviceId(storedDeviceId);
+      } else {
+        const newId = Math.random().toString(36).substring(2, 15);
+        localStorage.setItem("deviceId", newId);
+        setDeviceId(newId);
+      }
+    }
+  }, []);
+
+  // Helper to generate a username
   const generateUsername = (name: string) => {
     return name.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 15) + Math.floor(Math.random() * 1000);
   };
@@ -89,9 +119,9 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
     }
   }, [user?.username, user.name]);
 
-  // Owner check via localStorage
+  // Ownership check: only run on client (using localStorage)
   useEffect(() => {
-    if (!user?.username) return;
+    if (!user?.username || typeof window === "undefined") return;
 
     const ownerKey = `${user.username}_owner`;
     const existingOwner = localStorage.getItem(ownerKey);
@@ -114,20 +144,12 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
     }
   }, [user?.username]);
 
-  // Persist user profile in localStorage
+  // Persist user profile in localStorage (client only)
   useEffect(() => {
-    localStorage.setItem("userProfile", JSON.stringify(user));
-  }, [user]);
-
-  // Update dark mode: persist setting and add/remove "dark" class from document.documentElement
-  useEffect(() => {
-    localStorage.setItem('darkMode', darkMode.toString());
-    if (darkMode) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
+    if (typeof window !== "undefined") {
+      localStorage.setItem("userProfile", JSON.stringify(user));
     }
-  }, [darkMode]);
+  }, [user]);
 
   const themeClasses: Record<typeof theme, string> = {
     default: "bg-gradient-to-b from-gray-100 to-blue-100 dark:from-gray-900 dark:to-gray-800",
@@ -155,20 +177,19 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
 
   const handleSaveProfile = async () => {
     try {
-      // 🔐 Get or generate device ID
-      const storedDeviceId = localStorage.getItem('deviceId') || generateDeviceId();
-      localStorage.setItem('deviceId', storedDeviceId);
-  
+      if (!deviceId) {
+        alert("Device ID not initialized. Please try again.");
+        return;
+      }
       const res = await fetch(`${API_BASE_URL}/api/profiles`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...user,
           username: user.username || generateUsername(user.name || ""),
-          deviceId: storedDeviceId  // ✅ ensure deviceId is sent
+          deviceId: deviceId,
         }),
       });
-  
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save profile");
       alert("Profile saved successfully!");
@@ -176,7 +197,7 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
       alert("Error saving profile: " + err.message);
     }
   };
-  
+
   const handleEditButtonClick = () => {
     if (!isOwner) {
       alert("You are not the owner of this profile. This is view-only mode.");
@@ -232,20 +253,17 @@ END:VCARD`.trim();
       setAppointmentError("Please choose a future date and time for your appointment.");
       return;
     }
-
     try {
       const res = await fetch(`${API_BASE_URL}/api/appointments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(appointment),
       });
-
       if (!res.ok) {
         const data = await res.json();
         setAppointmentError(data.message || "Failed to create appointment.");
         return;
       }
-
       alert("Appointment request sent!");
       setAppointment({ name: "", email: "", date: "", time: "" });
     } catch (error) {
