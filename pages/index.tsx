@@ -103,12 +103,11 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
     }
   }, []);
 
-  // Helper to generate a username; now used only on save if username is missing.
+  // Helper to generate a username; this will only be used on save if username is missing.
   const generateUsername = (name: string) => {
     return name.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 15) + Math.floor(Math.random() * 1000);
   };
 
-  // Log username when it changes (for debugging)
   useEffect(() => {
     console.log("Current username:", user.username);
   }, [user?.username]);
@@ -178,7 +177,7 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
         alert("Device ID not initialized. Please try again.");
         return;
       }
-      // On save, generate a username if it's not already set
+      // On save, generate a username if it's not already set.
       const finalUsername = user.username || generateUsername(user.name || "");
       const res = await fetch(`${API_BASE_URL}/api/profiles`, {
         method: "POST",
@@ -191,7 +190,7 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save profile");
-      // Update the user state with the final username if generated
+      // Update the user state with the final username if generated.
       setUser((prev) => ({ ...prev, username: finalUsername }));
       alert("Profile saved successfully!");
     } catch (err: any) {
@@ -386,6 +385,20 @@ END:VCARD`.trim();
                 <FaShareAlt />
               </button>
             </div>
+
+            {/* QR Code: Always enabled in both view and edit modes */}
+            {showQRCode && (
+              <div className="mt-4">
+                <p className="text-sm font-semibold dark:text-white mb-2">Scan to download vCard</p>
+                <QRCodeCanvas
+                  value={`BEGIN:VCARD\nVERSION:3.0\nFN:${user.name}\nTITLE:${user.title}\nEMAIL:${user.email}\nURL:${user.website}\nEND:VCARD`}
+                  size={128}
+                />
+              </div>
+            )}
+            <button onClick={() => setShowQRCode(!showQRCode)} className="mt-2 text-xs text-blue-500 hover:underline">
+              {showQRCode ? "Hide QR Code" : "Show QR Code"}
+            </button>
           </div>
 
           {/* Contact Info */}
@@ -401,14 +414,14 @@ END:VCARD`.trim();
 
           {/* Appointment Form */}
           <div className="mt-6 border-t pt-4">
-            <h3 className="text-md font-semibold mb-2">Schedule a Call</h3>
+            <h3 className="text-md font-semibold mb-2 dark:text-white">Schedule a Call</h3>
             <form onSubmit={handleAppointmentSubmit} className="space-y-3">
               <input
                 type="text"
                 placeholder="Your Name"
                 value={appointment.name}
                 onChange={(e) => setAppointment({ ...appointment, name: e.target.value })}
-                className="w-full text-sm p-2 border rounded-md"
+                className="w-full text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:border-gray-700"
                 required
               />
               <input
@@ -416,7 +429,7 @@ END:VCARD`.trim();
                 placeholder="Your Email"
                 value={appointment.email}
                 onChange={(e) => setAppointment({ ...appointment, email: e.target.value })}
-                className="w-full text-sm p-2 border rounded-md"
+                className="w-full text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:border-gray-700"
                 required
               />
               <div className="flex gap-2">
@@ -424,18 +437,18 @@ END:VCARD`.trim();
                   type="date"
                   value={appointment.date}
                   onChange={(e) => setAppointment({ ...appointment, date: e.target.value })}
-                  className="w-1/2 text-sm p-2 border rounded-md"
+                  className="w-1/2 text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
                   required
                 />
                 <input
                   type="time"
                   value={appointment.time}
                   onChange={(e) => setAppointment({ ...appointment, time: e.target.value })}
-                  className="w-1/2 text-sm p-2 border rounded-md"
+                  className="w-1/2 text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
                   required
                 />
               </div>
-              {appointmentError && <p className="text-xs text-red-500">{appointmentError}</p>}
+              {appointmentError && <p className="text-xs text-red-500 dark:text-red-400">{appointmentError}</p>}
               <button
                 type="submit"
                 className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm py-2 rounded-md"
