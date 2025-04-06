@@ -33,7 +33,7 @@ export default function ProfilePage() {
 
     const fetchProfile = async () => {
       try {
-        const res = await axios.get(`/api/profile/${id}`);
+        const res = await axios.get(`/api/profiles/${id}`);
         setProfile(res.data);
 
         // Check ownership using localStorage. We assume the first visitor becomes the owner.
@@ -65,7 +65,7 @@ export default function ProfilePage() {
   const handleSave = async () => {
     if (!profile || !id) return;
     try {
-      await axios.post(`/api/profile/${id}`, profile);
+      await axios.post(`/api/profiles/${id}`, profile);
       alert('Profile updated!');
     } catch (err) {
       console.error('Save error:', err);
