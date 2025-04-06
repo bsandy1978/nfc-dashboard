@@ -26,6 +26,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     if (!id || typeof id !== 'string') return;
@@ -35,15 +36,18 @@ export default function ProfilePage() {
         const res = await axios.get(`/api/profile/${id}`);
         setProfile(res.data);
 
-        const localOwner = localStorage.getItem(`nfc-owner-${id}`);
+        // Check ownership using localStorage. We assume the first visitor becomes the owner.
+        const ownerKey = `nfc-owner-${id}`;
+        const localOwner = localStorage.getItem(ownerKey);
         if (localOwner === 'true') {
           setIsOwner(true);
         } else if (localOwner === null) {
-          localStorage.setItem(`nfc-owner-${id}`, 'true');
+          localStorage.setItem(ownerKey, 'true');
           setIsOwner(true);
         }
       } catch (err) {
         console.error('Profile fetch error:', err);
+        setErrorMessage("Error fetching profile. Please try again later.");
       } finally {
         setLoading(false);
       }
@@ -54,39 +58,48 @@ export default function ProfilePage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!profile) return;
-    setProfile({ ...profile, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setProfile({ ...profile, [name]: value });
   };
 
   const handleSave = async () => {
-    if (!profile) return;
+    if (!profile || !id) return;
     try {
       await axios.post(`/api/profile/${id}`, profile);
       alert('Profile updated!');
     } catch (err) {
+      console.error('Save error:', err);
       alert('Save failed.');
     }
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (!profile) return <div>Profile not found</div>;
+  if (loading) return <div className="p-6">Loading...</div>;
+  if (errorMessage) return <div className="p-6 text-red-500">{errorMessage}</div>;
+  if (!profile) return <div className="p-6">Profile not found.</div>;
+
+  // Define the fields to display and edit
+  const fields: (keyof UserProfile)[] = [
+    'name', 'title', 'subtitle', 'email', 'linkedin',
+    'instagram', 'twitter', 'website', 'location', 'upi'
+  ];
 
   return (
     <div className="p-6 max-w-xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">{isOwner ? 'Edit' : 'View'} Profile</h1>
 
       <div className="space-y-4">
-        {['name', 'title', 'subtitle', 'email', 'linkedin', 'instagram', 'twitter', 'website', 'location', 'upi'].map((field) => (
+        {fields.map((field) => (
           <div key={field}>
             <label className="block text-sm font-medium capitalize">{field}</label>
             {isOwner ? (
               <input
                 name={field}
-                value={profile[field as keyof UserProfile] || ''}
+                value={profile[field] || ''}
                 onChange={handleChange}
                 className="w-full border rounded px-3 py-2"
               />
             ) : (
-              <p className="text-gray-700">{profile[field as keyof UserProfile]}</p>
+              <p className="text-gray-700">{profile[field]}</p>
             )}
           </div>
         ))}

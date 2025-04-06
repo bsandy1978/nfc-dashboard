@@ -34,9 +34,9 @@ interface HomeProps {
   initialEditMode?: boolean;
 }
 
-// Function to generate a unique device ID (could use a library like uuid)
+// Generate a unique device ID (could use a library like uuid)
 const generateDeviceId = () => {
-  return localStorage.getItem('deviceId') || Math.random().toString(36).substring(2, 15);  // Fallback in case there's no device ID
+  return localStorage.getItem('deviceId') || Math.random().toString(36).substring(2, 15);
 };
 
 export default function Home({ initialData, initialEditMode = true }: HomeProps) {
@@ -85,16 +85,16 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
     }
   }, [user?.username, user.name]);
 
+  // Owner check via localStorage
   useEffect(() => {
-    // Ensure the username is set before checking for ownership
     if (!user?.username) return;
-  
+
     const ownerKey = `${user.username}_owner`;
     const existingOwner = localStorage.getItem(ownerKey);
-  
+
     console.log('Checking ownership for user:', user.username);
     console.log('Existing owner:', existingOwner);
-  
+
     if (existingOwner === "true") {
       setIsOwner(true);
       setEditMode(true);
@@ -109,61 +109,13 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
       }
     }
   }, [user?.username]);
-  
-  // Function to generate a unique device ID (could use a library like uuid)
-const generateDeviceId = () => {
-  return localStorage.getItem('deviceId') || Math.random().toString(36).substring(2, 15);  // Fallback in case there's no device ID
-};
 
-const Home = ({ initialData, initialEditMode = true }) => {
-  const [user, setUser] = useState(initialData);
-  const [isOwner, setIsOwner] = useState(false);
-  const [deviceId, setDeviceId] = useState(generateDeviceId());
-
-  useEffect(() => {
-    localStorage.setItem('deviceId', deviceId);  // Store device ID for future checks
-
-    const setOwner = async () => {
-      try {
-        const response = await axios.post('/api/profile/set-owner', {
-          username: user.username,
-          deviceId: deviceId
-        });
-
-        // Check if this device is the owner
-        if (response.data.ownerDeviceId === deviceId) {
-          setIsOwner(true);
-        }
-      } catch (error) {
-        console.error('Error setting owner:', error);
-      }
-    };
-
-    setOwner();
-  }, [user.username, deviceId]);
-
-  return (
-    <div>
-      <h1>{isOwner ? 'You are the owner' : 'You are in view-only mode'}</h1>
-      {/* Render profile or allow editing if the user is the owner */}
-      {isOwner ? (
-        <div>
-          {/* Profile edit form */}
-        </div>
-      ) : (
-        <div>
-          {/* View-only profile */}
-        </div>
-      )}
-    </div>
-  );
-};
-
-
+  // Persist user profile in localStorage
   useEffect(() => {
     localStorage.setItem("userProfile", JSON.stringify(user));
   }, [user]);
 
+  // Toggle dark mode on the document
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
   }, [darkMode]);
@@ -219,6 +171,7 @@ const Home = ({ initialData, initialEditMode = true }) => {
       setEditMode(true);
     }
   };
+
   const handleDownloadVCF = () => {
     const vcf = `BEGIN:VCARD
 VERSION:3.0
