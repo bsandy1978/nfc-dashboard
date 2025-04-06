@@ -103,17 +103,18 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
     }
   }, []);
 
-  // Helper to generate a username; this will only be used when saving if no username exists.
+  // Helper to generate a username; now used only on save if username is missing.
   const generateUsername = (name: string) => {
     return name.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 15) + Math.floor(Math.random() * 1000);
   };
 
+  // Log username when it changes (for debugging)
   useEffect(() => {
     console.log("Current username:", user.username);
   }, [user?.username]);
 
-  // Remove auto-generation effect so username isn't created before saving
-  // (Username will be generated in handleSaveProfile if it's not already set.)
+  // Removed automatic username generation on load.
+  // Username will be generated in handleSaveProfile if it's not already set.
 
   // Ownership check: only run on client (using localStorage)
   useEffect(() => {
@@ -177,18 +178,21 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
         alert("Device ID not initialized. Please try again.");
         return;
       }
+      // On save, generate a username if it's not already set
+      const finalUsername = user.username || generateUsername(user.name || "");
       const res = await fetch(`${API_BASE_URL}/api/profiles`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...user,
-          // Only generate a username on save if it's empty:
-          username: user.username || generateUsername(user.name || ""),
+          username: finalUsername,
           deviceId: deviceId,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save profile");
+      // Update the user state with the final username if generated
+      setUser((prev) => ({ ...prev, username: finalUsername }));
       alert("Profile saved successfully!");
     } catch (err: any) {
       alert("Error saving profile: " + err.message);
@@ -197,7 +201,7 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
 
   const handleEditButtonClick = () => {
     if (!isOwner) {
-      alert("You are not the owner of this profile. This is view-only mode.");
+      alert("You are not the owner of this profile.");
       return;
     }
     if (editMode) {
@@ -332,11 +336,24 @@ END:VCARD`.trim();
             </div>
             <input type="file" ref={fileInputRef} hidden accept="image/*" onChange={handleAvatarUpload} />
 
-            {editMode ? (
+            {/* For owners in edit mode, render inputs; for everyone else, render plain text */}
+            {isOwner && editMode ? (
               <>
-                <input className="text-lg font-semibold text-center bg-transparent border-b dark:text-white" value={user.name} onChange={(e) => handleChange("name", e.target.value)} />
-                <input className="text-sm text-center bg-transparent border-b dark:text-gray-300" value={user.title} onChange={(e) => handleChange("title", e.target.value)} />
-                <input className="text-xs text-center bg-transparent border-b dark:text-gray-400" value={user.subtitle} onChange={(e) => handleChange("subtitle", e.target.value)} />
+                <input
+                  className="text-lg font-semibold text-center bg-transparent border-b dark:text-white"
+                  value={user.name}
+                  onChange={(e) => handleChange("name", e.target.value)}
+                />
+                <input
+                  className="text-sm text-center bg-transparent border-b dark:text-gray-300"
+                  value={user.title}
+                  onChange={(e) => handleChange("title", e.target.value)}
+                />
+                <input
+                  className="text-xs text-center bg-transparent border-b dark:text-gray-400"
+                  value={user.subtitle}
+                  onChange={(e) => handleChange("subtitle", e.target.value)}
+                />
               </>
             ) : (
               <>
@@ -346,60 +363,85 @@ END:VCARD`.trim();
               </>
             )}
 
-            {/* Action Buttons */}
+            {/* Action Buttons: Only show Edit/Save if owner */}
             <div className="flex w-full gap-2 mt-3">
-              {isOwner ? (
-                <button onClick={handleEditButtonClick} className="flex-1 text-sm bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-2 rounded-md flex justify-center items-center gap-1">
+              {isOwner && (
+                <button
+                  onClick={handleEditButtonClick}
+                  className="flex-1 text-sm bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-2 rounded-md flex justify-center items-center gap-1"
+                >
                   <FaEdit className="text-lg" /> {editMode ? "Save" : "Edit Profile"}
                 </button>
-              ) : (
-                <p className="text-xs text-red-500 text-center italic">View-only mode</p>
               )}
-              <button onClick={handleDownloadVCF} className="flex-1 border border-blue-500 text-blue-500 px-3 py-2 rounded-md flex items-center justify-center">
+              <button
+                onClick={handleDownloadVCF}
+                className="flex-1 border border-blue-500 text-blue-500 px-3 py-2 rounded-md flex items-center justify-center"
+              >
                 <FaDownload />
               </button>
-              <button onClick={handleShare} className="flex-1 border border-green-500 text-green-500 px-3 py-2 rounded-md flex items-center justify-center">
+              <button
+                onClick={handleShare}
+                className="flex-1 border border-green-500 text-green-500 px-3 py-2 rounded-md flex items-center justify-center"
+              >
                 <FaShareAlt />
               </button>
             </div>
-
-            {showQRCode && (
-              <div className="mt-4">
-                <p className="text-sm font-semibold dark:text-white mb-2">Scan to download vCard</p>
-                <QRCodeCanvas
-                  value={`BEGIN:VCARD\nVERSION:3.0\nFN:${user.name}\nTITLE:${user.title}\nEMAIL:${user.email}\nURL:${user.website}\nEND:VCARD`}
-                  size={128}
-                />
-              </div>
-            )}
-            <button onClick={() => setShowQRCode(!showQRCode)} className="mt-2 text-xs text-blue-500 hover:underline">
-              {showQRCode ? "Hide QR Code" : "Show QR Code"}
-            </button>
           </div>
 
           {/* Contact Info */}
           <div className="mt-6 divide-y divide-gray-200 dark:divide-gray-700">
-            <ContactRow icon={<EnvelopeIcon className="w-6 h-6 text-blue-500" />} label="Email" value={user.email} onChange={(val) => handleChange("email", val)} edit={editMode} link={`mailto:${user.email}`} />
-            <ContactRow icon={<FaInstagram className="text-2xl text-pink-600" />} label="Instagram" value={user.instagram} onChange={(val) => handleChange("instagram", val)} edit={editMode} link={`https://instagram.com/${user.instagram?.replace("@", "")}`} />
-            <ContactRow icon={<FaLinkedin className="text-2xl text-blue-700" />} label="LinkedIn" value={user.linkedin} onChange={(val) => handleChange("linkedin", val)} edit={editMode} link={`https://linkedin.com/in/${user.linkedin}`} />
-            <ContactRow icon={<FaTwitter className="text-2xl text-sky-400" />} label="Twitter" value={user.twitter} onChange={(val) => handleChange("twitter", val)} edit={editMode} link={`https://twitter.com/${user.twitter?.replace("@", "")}`} />
-            <ContactRow icon={<FaGlobe className="text-2xl text-gray-500" />} label="Website" value={user.website} onChange={(val) => handleChange("website", val)} edit={editMode} link={`https://${user.website}`} />
-            <ContactRow icon={<FaMapMarkerAlt className="text-2xl text-red-500" />} label="Location" value={user.location} onChange={(val) => handleChange("location", val)} edit={editMode} link={`https://maps.google.com/?q=${user.location}`} />
-            <ContactRow icon={<FaMoneyBill className="text-2xl text-green-500" />} label="UPI" value={user.upi} onChange={(val) => handleChange("upi", val)} edit={editMode} link={`upi://pay?pa=${user.upi}`} />
+            <ContactRow icon={<EnvelopeIcon className="w-6 h-6 text-blue-500" />} label="Email" value={user.email} onChange={(val) => handleChange("email", val)} edit={isOwner && editMode} link={`mailto:${user.email}`} />
+            <ContactRow icon={<FaInstagram className="text-2xl text-pink-600" />} label="Instagram" value={user.instagram} onChange={(val) => handleChange("instagram", val)} edit={isOwner && editMode} link={`https://instagram.com/${user.instagram?.replace("@", "")}`} />
+            <ContactRow icon={<FaLinkedin className="text-2xl text-blue-700" />} label="LinkedIn" value={user.linkedin} onChange={(val) => handleChange("linkedin", val)} edit={isOwner && editMode} link={`https://linkedin.com/in/${user.linkedin}`} />
+            <ContactRow icon={<FaTwitter className="text-2xl text-sky-400" />} label="Twitter" value={user.twitter} onChange={(val) => handleChange("twitter", val)} edit={isOwner && editMode} link={`https://twitter.com/${user.twitter?.replace("@", "")}`} />
+            <ContactRow icon={<FaGlobe className="text-2xl text-gray-500" />} label="Website" value={user.website} onChange={(val) => handleChange("website", val)} edit={isOwner && editMode} link={`https://${user.website}`} />
+            <ContactRow icon={<FaMapMarkerAlt className="text-2xl text-red-500" />} label="Location" value={user.location} onChange={(val) => handleChange("location", val)} edit={isOwner && editMode} link={`https://maps.google.com/?q=${user.location}`} />
+            <ContactRow icon={<FaMoneyBill className="text-2xl text-green-500" />} label="UPI" value={user.upi} onChange={(val) => handleChange("upi", val)} edit={isOwner && editMode} link={`upi://pay?pa=${user.upi}`} />
           </div>
 
           {/* Appointment Form */}
           <div className="mt-6 border-t pt-4">
             <h3 className="text-md font-semibold mb-2">Schedule a Call</h3>
             <form onSubmit={handleAppointmentSubmit} className="space-y-3">
-              <input type="text" placeholder="Your Name" value={appointment.name} onChange={(e) => setAppointment({ ...appointment, name: e.target.value })} className="w-full text-sm p-2 border rounded-md" required />
-              <input type="email" placeholder="Your Email" value={appointment.email} onChange={(e) => setAppointment({ ...appointment, email: e.target.value })} className="w-full text-sm p-2 border rounded-md" required />
+              <input
+                type="text"
+                placeholder="Your Name"
+                value={appointment.name}
+                onChange={(e) => setAppointment({ ...appointment, name: e.target.value })}
+                className="w-full text-sm p-2 border rounded-md"
+                required
+              />
+              <input
+                type="email"
+                placeholder="Your Email"
+                value={appointment.email}
+                onChange={(e) => setAppointment({ ...appointment, email: e.target.value })}
+                className="w-full text-sm p-2 border rounded-md"
+                required
+              />
               <div className="flex gap-2">
-                <input type="date" value={appointment.date} onChange={(e) => setAppointment({ ...appointment, date: e.target.value })} className="w-1/2 text-sm p-2 border rounded-md" required />
-                <input type="time" value={appointment.time} onChange={(e) => setAppointment({ ...appointment, time: e.target.value })} className="w-1/2 text-sm p-2 border rounded-md" required />
+                <input
+                  type="date"
+                  value={appointment.date}
+                  onChange={(e) => setAppointment({ ...appointment, date: e.target.value })}
+                  className="w-1/2 text-sm p-2 border rounded-md"
+                  required
+                />
+                <input
+                  type="time"
+                  value={appointment.time}
+                  onChange={(e) => setAppointment({ ...appointment, time: e.target.value })}
+                  className="w-1/2 text-sm p-2 border rounded-md"
+                  required
+                />
               </div>
               {appointmentError && <p className="text-xs text-red-500">{appointmentError}</p>}
-              <button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm py-2 rounded-md">Book Appointment</button>
+              <button
+                type="submit"
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm py-2 rounded-md"
+              >
+                Book Appointment
+              </button>
             </form>
           </div>
         </div>
@@ -419,16 +461,25 @@ type ContactRowProps = {
 
 function ContactRow({ icon, label, value, onChange, edit, link }: ContactRowProps) {
   return (
-    <div className="flex items-center gap-3 py-3 group hover:bg-blue-50 transition px-3">
-      <div className="text-2xl w-10 h-10 flex justify-center items-center rounded-full bg-white shadow-md">
+    <div className="flex items-center gap-3 py-3 group hover:bg-blue-50 dark:hover:bg-gray-700 transition px-3">
+      <div className="text-2xl w-10 h-10 flex justify-center items-center rounded-full bg-white dark:bg-gray-800 shadow-md">
         {icon}
       </div>
       <div className="flex-1">
         <p className="text-sm font-semibold mb-1">{label}</p>
         {edit ? (
-          <input className="text-xs bg-transparent border-b w-full focus:outline-none" value={value} onChange={(e) => onChange(e.target.value)} />
+          <input
+            className="text-xs bg-transparent border-b w-full focus:outline-none dark:text-white"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+          />
         ) : (
-          <a href={link} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline">
+          <a
+            href={link}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-blue-500 hover:underline break-all"
+          >
             {value}
           </a>
         )}
