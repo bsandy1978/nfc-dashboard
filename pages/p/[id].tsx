@@ -26,12 +26,26 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // Helper function to generate or retrieve a device ID
+  // Safe wrappers for localStorage to ensure these run only on the client
+  const safeLocalStorageGetItem = (key: string): string | null => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem(key);
+    }
+    return null;
+  };
+
+  const safeLocalStorageSetItem = (key: string, value: string): void => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(key, value);
+    }
+  };
+
+  // Helper to generate (or retrieve) a device ID
   const generateDeviceId = () => {
-    const existing = localStorage.getItem("deviceId");
+    const existing = safeLocalStorageGetItem("deviceId");
     if (existing) return existing;
     const newId = Math.random().toString(36).substring(2, 15);
-    localStorage.setItem("deviceId", newId);
+    safeLocalStorageSetItem("deviceId", newId);
     return newId;
   };
 
@@ -43,13 +57,13 @@ export default function ProfilePage() {
         const res = await axios.get(`/api/profile/${id}`);
         setProfile(res.data);
 
-        // Check ownership using localStorage. We assume the first visitor becomes the owner.
+        // Ownership check: first visitor becomes owner
         const ownerKey = `nfc-owner-${id}`;
-        const localOwner = localStorage.getItem(ownerKey);
+        const localOwner = safeLocalStorageGetItem(ownerKey);
         if (localOwner === 'true') {
           setIsOwner(true);
         } else if (localOwner === null) {
-          localStorage.setItem(ownerKey, 'true');
+          safeLocalStorageSetItem(ownerKey, 'true');
           setIsOwner(true);
         }
       } catch (err) {
@@ -85,7 +99,7 @@ export default function ProfilePage() {
   if (errorMessage) return <div className="p-6 text-red-500">{errorMessage}</div>;
   if (!profile) return <div className="p-6">Profile not found.</div>;
 
-  // Define the fields to display and edit
+  // List of fields to display and edit
   const fields: (keyof UserProfile)[] = [
     'name', 'title', 'subtitle', 'email', 'linkedin',
     'instagram', 'twitter', 'website', 'location', 'upi'
