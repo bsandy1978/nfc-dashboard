@@ -146,11 +146,20 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
 
   const handleSaveProfile = async () => {
     try {
+      // 🔐 Get or generate device ID
+      const storedDeviceId = localStorage.getItem('deviceId') || generateDeviceId();
+      localStorage.setItem('deviceId', storedDeviceId);
+  
       const res = await fetch(`${API_BASE_URL}/api/profiles`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...user, username: user.username || generateUsername(user.name || "") }),
+        body: JSON.stringify({
+          ...user,
+          username: user.username || generateUsername(user.name || ""),
+          deviceId: storedDeviceId  // ✅ this is the fix
+        }),
       });
+  
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save profile");
       alert("Profile saved successfully!");
@@ -158,6 +167,7 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
       alert("Error saving profile: " + err.message);
     }
   };
+  
 
   const handleEditButtonClick = () => {
     if (!isOwner) {
