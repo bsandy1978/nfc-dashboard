@@ -72,7 +72,7 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
     if (typeof window !== "undefined") {
       const savedDarkMode = localStorage.getItem("darkMode");
       if (savedDarkMode !== null) {
-        setDarkMode(savedDarkMode === "false");
+        setDarkMode(savedDarkMode === "true");
       }
     }
   }, []);

@@ -87,8 +87,11 @@ export default function ProfilePage() {
     if (!profile || !id) return;
     try {
       const deviceId = generateDeviceId();
-      await axios.post(`/api/profile/${id}`, { ...profile, deviceId });
-      alert('Profile updated!');
+      axios.post(`/api/profile/by-id/${id}`, {
+        ...profile,
+        deviceId: localStorage.getItem("deviceId"),
+      })
+            alert('Profile updated!');
     } catch (err) {
       console.error('Save error:', err);
       alert('Save failed.');
