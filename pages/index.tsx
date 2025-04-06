@@ -42,7 +42,11 @@ const generateDeviceId = () => {
 export default function Home({ initialData, initialEditMode = true }: HomeProps) {
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-  const [darkMode, setDarkMode] = useState(false);
+  // Initialize dark mode from localStorage (if saved) so it persists across sessions.
+  const [darkMode, setDarkMode] = useState(() => {
+    const stored = localStorage.getItem('darkMode');
+    return stored === 'true';
+  });
   const [theme, setTheme] = useState<"default" | "ocean" | "forest" | "sunset">("default");
   const [editMode, setEditMode] = useState(initialEditMode);
   const [isOwner, setIsOwner] = useState(false);
@@ -115,9 +119,14 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
     localStorage.setItem("userProfile", JSON.stringify(user));
   }, [user]);
 
-  // Toggle dark mode on the document
+  // Update dark mode: persist setting and add/remove "dark" class from document.documentElement
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", darkMode);
+    localStorage.setItem('darkMode', darkMode.toString());
+    if (darkMode) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
   }, [darkMode]);
 
   const themeClasses: Record<typeof theme, string> = {
@@ -156,7 +165,7 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
         body: JSON.stringify({
           ...user,
           username: user.username || generateUsername(user.name || ""),
-          deviceId: storedDeviceId  // ✅ this is the fix
+          deviceId: storedDeviceId  // ✅ ensure deviceId is sent
         }),
       });
   
@@ -168,7 +177,6 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
     }
   };
   
-
   const handleEditButtonClick = () => {
     if (!isOwner) {
       alert("You are not the owner of this profile. This is view-only mode.");

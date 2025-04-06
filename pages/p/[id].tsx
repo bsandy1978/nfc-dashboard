@@ -1,5 +1,3 @@
-// pages/p/[id].tsx
-
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
@@ -28,12 +26,21 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
+  // Helper function to generate or retrieve a device ID
+  const generateDeviceId = () => {
+    const existing = localStorage.getItem("deviceId");
+    if (existing) return existing;
+    const newId = Math.random().toString(36).substring(2, 15);
+    localStorage.setItem("deviceId", newId);
+    return newId;
+  };
+
   useEffect(() => {
     if (!id || typeof id !== 'string') return;
 
     const fetchProfile = async () => {
       try {
-        const res = await axios.get(`/api/profiles/${id}`);
+        const res = await axios.get(`/api/profile/${id}`);
         setProfile(res.data);
 
         // Check ownership using localStorage. We assume the first visitor becomes the owner.
@@ -65,7 +72,8 @@ export default function ProfilePage() {
   const handleSave = async () => {
     if (!profile || !id) return;
     try {
-      await axios.post(`/api/profiles/${id}`, profile);
+      const deviceId = generateDeviceId();
+      await axios.post(`/api/profile/${id}`, { ...profile, deviceId });
       alert('Profile updated!');
     } catch (err) {
       console.error('Save error:', err);
