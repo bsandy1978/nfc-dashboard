@@ -1,22 +1,29 @@
-import { useState } from 'react';
 import axios from 'axios';
+import { useState } from 'react';
 
 export default function AdminPage() {
-  const [slug, setSlug] = useState('');
-  const [link, setLink] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL; // Make sure this is set in .env.local
+
+  const [generatedSlug, setGeneratedSlug] = useState<string>('');
+  const [generatedLink, setGeneratedLink] = useState<string>('');
+  const [error, setError] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
 
   const generateSlug = async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/slugs`)
-      setSlug(res.data.slug);
-      setLink(res.data.link);
-    } catch (err) {
+      // POST to the slug generation endpoint
+      const res = await axios.post(`${API_BASE_URL}/api/slugs`);
+      setGeneratedSlug(res.data.slug);
+      setGeneratedLink(res.data.link);
+    } catch (err: any) {
+      if (err.response && err.response.status === 409) {
+        setError('Slug collision – please try again.');
+      } else {
+        setError('Error generating slug.');
+      }
       console.error(err);
-      setError('Failed to generate slug.');
     } finally {
       setLoading(false);
     }
@@ -33,18 +40,18 @@ export default function AdminPage() {
         {loading ? 'Generating...' : 'Generate New Link'}
       </button>
 
-      {slug && (
+      {generatedSlug && (
         <div className="mt-4 bg-gray-100 p-4 rounded shadow">
           <p className="text-sm">Generated Slug:</p>
-          <p className="font-mono text-lg text-blue-700">{slug}</p>
-          <p className="mt-2 text-sm">Embed this link:</p>
+          <p className="font-mono text-lg text-blue-700">{generatedSlug}</p>
+          <p className="mt-2 text-sm">Embed this link in the NFC card:</p>
           <a
-            href={link}
-            className="text-blue-600 underline"
+            href={generatedLink}
+            className="text-blue-600 underline break-all"
             target="_blank"
             rel="noopener noreferrer"
           >
-            {link}
+            {generatedLink}
           </a>
         </div>
       )}
