@@ -179,7 +179,7 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
       }
       // On save, generate a username if it's not already set.
       const finalUsername = user.username || generateUsername(user.name || "");
-      const res = await fetch(`${API_BASE_URL}/api/profiles`, {
+      const res = await fetch(`${API_BASE_URL}/api/profile`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -292,7 +292,7 @@ END:VCARD`.trim();
       "00Z";
     const start = formatDate(startDateTime);
     const end = formatDate(endDateTime);
-    const details = encodeURIComponent("Appointment booked via Virtual Card");
+    const details = encodeURIComponent("Appointment requested via Virtual Card");
     const text = encodeURIComponent(`Appointment with ${user.name}`);
     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=${start}/${end}&details=${details}`;
   };
