@@ -2,8 +2,7 @@ import axios from 'axios';
 import { useState } from 'react';
 
 export default function AdminPage() {
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL; // Make sure this is set in .env.local
-
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
   const [generatedSlug, setGeneratedSlug] = useState<string>('');
   const [generatedLink, setGeneratedLink] = useState<string>('');
   const [error, setError] = useState<string>('');
@@ -13,7 +12,6 @@ export default function AdminPage() {
     setLoading(true);
     setError('');
     try {
-      // POST to the slug generation endpoint
       const res = await axios.post(`${API_BASE_URL}/api/slugs`);
       setGeneratedSlug(res.data.slug);
       setGeneratedLink(res.data.link);
@@ -31,7 +29,7 @@ export default function AdminPage() {
 
   return (
     <div className="p-8 max-w-lg mx-auto">
-      <h1 className="text-2xl font-bold mb-4">🔐 Slug Generator (Admin)</h1>
+      <h1 className="text-2xl font-bold mb-4">Slug Generator (Admin)</h1>
       <button
         onClick={generateSlug}
         className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
@@ -39,7 +37,6 @@ export default function AdminPage() {
       >
         {loading ? 'Generating...' : 'Generate New Link'}
       </button>
-
       {generatedSlug && (
         <div className="mt-4 bg-gray-100 p-4 rounded shadow">
           <p className="text-sm">Generated Slug:</p>
@@ -55,7 +52,6 @@ export default function AdminPage() {
           </a>
         </div>
       )}
-
       {error && <p className="text-red-500 mt-4">{error}</p>}
     </div>
   );
