@@ -262,14 +262,9 @@ END:VCARD`.trim();
                       <input
                         name={item.field}
                         value={value}
-                        onChange={(e) =>
-                          handleChange(
-                            item.field as keyof UserProfile,
-                            (e.target as HTMLInputElement).value
-                          )
-                        }
+                        onChange={handleChange}
                         className="text-xs bg-transparent border-b w-full focus:outline-none dark:text-white"
-                      />
+                        />
                     ) : (
                       <a
                         href={link}
