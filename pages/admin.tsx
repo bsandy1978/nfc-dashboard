@@ -11,7 +11,7 @@ export default function AdminPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await axios.post('/api/slugs');
+      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/slugs`)
       setSlug(res.data.slug);
       setLink(res.data.link);
     } catch (err) {
