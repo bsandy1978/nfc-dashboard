@@ -1,9 +1,10 @@
+// pages/p/[slug].tsx
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
 
 interface UserProfile {
-  _id: string;
+  slug: string;
   name?: string;
   title?: string;
   subtitle?: string;
@@ -15,55 +16,33 @@ interface UserProfile {
   website?: string;
   location?: string;
   upi?: string;
+  ownerDeviceId: string;
 }
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { id } = router.query;
+  const { slug } = router.query;
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // Safe wrappers for localStorage to ensure these run only on the client
-  const safeLocalStorageGetItem = (key: string): string | null => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem(key);
-    }
-    return null;
-  };
-
-  const safeLocalStorageSetItem = (key: string, value: string): void => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(key, value);
-    }
-  };
-
-  // Helper to generate (or retrieve) a device ID
-  const generateDeviceId = () => {
-    const existing = safeLocalStorageGetItem("deviceId");
-    if (existing) return existing;
-    const newId = Math.random().toString(36).substring(2, 15);
-    safeLocalStorageSetItem("deviceId", newId);
-    return newId;
-  };
-
   useEffect(() => {
-    if (!id || typeof id !== 'string') return;
+    if (!slug || typeof slug !== 'string') return;
 
     const fetchProfile = async () => {
       try {
-        const res = await axios.get(`/api/profile/${id}`);
+        const res = await axios.get(`/api/profile/slug/${slug}`);
         setProfile(res.data);
 
-        // Ownership check: first visitor becomes owner
-        const ownerKey = `nfc-owner-${id}`;
-        const localOwner = safeLocalStorageGetItem(ownerKey);
+        // Ownership check: first visitor becomes owner.
+        const ownerKey = `nfc-owner-${slug}`;
+        const localOwner = localStorage.getItem(ownerKey);
         if (localOwner === 'true') {
           setIsOwner(true);
         } else if (localOwner === null) {
-          safeLocalStorageSetItem(ownerKey, 'true');
+          localStorage.setItem(ownerKey, 'true');
           setIsOwner(true);
         }
       } catch (err) {
@@ -75,7 +54,7 @@ export default function ProfilePage() {
     };
 
     fetchProfile();
-  }, [id]);
+  }, [slug]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!profile) return;
@@ -84,17 +63,17 @@ export default function ProfilePage() {
   };
 
   const handleSave = async () => {
-    if (!profile || !id) return;
+    if (!profile || !slug) return;
     try {
-      const deviceId = generateDeviceId();
-      axios.post(`/api/profile/by-id/${id}`, {
+      const deviceId = localStorage.getItem("deviceId") || "";
+      const res = await axios.post(`/api/profile/slug/${slug}`, {
         ...profile,
-        deviceId: localStorage.getItem("deviceId"),
-      })
-            alert('Profile updated!');
-    } catch (err) {
-      console.error('Save error:', err);
-      alert('Save failed.');
+        deviceId,
+      });
+      alert('Profile updated!');
+      setProfile(res.data);
+    } catch (err: any) {
+      alert('Error saving profile: ' + err.message);
     }
   };
 
@@ -102,7 +81,6 @@ export default function ProfilePage() {
   if (errorMessage) return <div className="p-6 text-red-500">{errorMessage}</div>;
   if (!profile) return <div className="p-6">Profile not found.</div>;
 
-  // List of fields to display and edit
   const fields: (keyof UserProfile)[] = [
     'name', 'title', 'subtitle', 'email', 'linkedin',
     'instagram', 'twitter', 'website', 'location', 'upi'
@@ -111,7 +89,6 @@ export default function ProfilePage() {
   return (
     <div className="p-6 max-w-xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">{isOwner ? 'Edit' : 'View'} Profile</h1>
-
       <div className="space-y-4">
         {fields.map((field) => (
           <div key={field}>
@@ -129,7 +106,6 @@ export default function ProfilePage() {
           </div>
         ))}
       </div>
-
       {isOwner && (
         <button
           onClick={handleSave}
