@@ -22,19 +22,21 @@ interface UserProfile {
 export default function ProfilePage() {
   const router = useRouter();
   const { slug } = router.query;
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-  
+
   useEffect(() => {
     if (!slug || typeof slug !== 'string') return;
 
     const fetchProfile = async () => {
       try {
-        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/profile/slug/${slug}`);
+        const url = `${API_BASE_URL}/api/profile/slug/${slug}`;
+        console.log("Fetching profile from:", url);
+        const res = await axios.get(url);
         setProfile(res.data);
 
         // Ownership check: first visitor becomes owner.
@@ -55,7 +57,7 @@ export default function ProfilePage() {
     };
 
     fetchProfile();
-  }, [slug]);
+  }, [slug, API_BASE_URL]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!profile) return;
@@ -67,10 +69,12 @@ export default function ProfilePage() {
     if (!profile || !slug) return;
     try {
       const deviceId = localStorage.getItem("deviceId") || "";
-      const res = await axios.post(`${API_BASE_URL}/api/profile/slug/${slug}`, {
+      const url = `${API_BASE_URL}/api/profile/slug/${slug}`;
+      console.log("Saving profile to:", url);
+      const res = await axios.post(url, {
         ...profile,
         deviceId,
-      });      
+      });
       alert('Profile updated!');
       setProfile(res.data);
     } catch (err: any) {
