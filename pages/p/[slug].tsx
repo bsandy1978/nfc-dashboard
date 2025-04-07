@@ -28,13 +28,13 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-
+  
   useEffect(() => {
     if (!slug || typeof slug !== 'string') return;
 
     const fetchProfile = async () => {
       try {
-        const res = await axios.get(`${API_BASE_URL}/api/profile/slug/${slug}`);
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/profile/slug/${slug}`);
         setProfile(res.data);
 
         // Ownership check: first visitor becomes owner.
@@ -67,10 +67,10 @@ export default function ProfilePage() {
     if (!profile || !slug) return;
     try {
       const deviceId = localStorage.getItem("deviceId") || "";
-      const res = await axios.post(`/api/profile/slug/${slug}`, {
+      const res = await axios.post(`${API_BASE_URL}/api/profile/slug/${slug}`, {
         ...profile,
         deviceId,
-      });
+      });      
       alert('Profile updated!');
       setProfile(res.data);
     } catch (err: any) {
