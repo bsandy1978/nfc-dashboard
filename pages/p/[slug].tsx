@@ -27,13 +27,14 @@ export default function ProfilePage() {
   const [isOwner, setIsOwner] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
   useEffect(() => {
     if (!slug || typeof slug !== 'string') return;
 
     const fetchProfile = async () => {
       try {
-        const res = await axios.get(`/api/profile/slug/${slug}`);
+        const res = await axios.get(`${API_BASE_URL}/api/profile/slug/${slug}`);
         setProfile(res.data);
 
         // Ownership check: first visitor becomes owner.
