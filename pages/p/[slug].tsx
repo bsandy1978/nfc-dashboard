@@ -53,24 +53,36 @@ export default function ProfilePage() {
         const url = `${API_BASE_URL}/api/profile/slug/${slug}`;
         console.log("Fetching profile from:", url);
         const res = await axios.get(url);
-        setProfile(res.data);
-
-        // Ownership check: first visitor becomes owner.
-        const ownerKey = `nfc-owner-${slug}`;
-        const localOwner = localStorage.getItem(ownerKey);
-        if (localOwner === 'true') {
-          setIsOwner(true);
-        } else if (localOwner === null) {
-          localStorage.setItem(ownerKey, 'true');
-          setIsOwner(true);
+        const profileData = res.data;
+        setProfile(profileData);
+    
+        // ✅ Step 1: Get or create a deviceId
+        let deviceId = localStorage.getItem("deviceId");
+        if (!deviceId) {
+          deviceId = Math.random().toString(36).substring(2, 15);
+          localStorage.setItem("deviceId", deviceId);
         }
+    
+        // ✅ Step 2: Claim ownership if none set in DB
+        if (!profileData.ownerDeviceId) {
+          await axios.post(`${API_BASE_URL}/api/profile/slug/${slug}/claim`, { deviceId });
+          profileData.ownerDeviceId = deviceId; // manually patch it
+        }
+    
+        // ✅ Step 3: Check if this device is the owner
+        if (profileData.ownerDeviceId === deviceId) {
+          setIsOwner(true);
+        } else {
+          setIsOwner(false);
+        }
+    
       } catch (err) {
         console.error("Profile fetch error:", err);
         setErrorMessage("Error fetching profile. Please try again later.");
       } finally {
         setLoading(false);
       }
-    };
+    };    
 
     fetchProfile();
   }, [slug, API_BASE_URL]);
