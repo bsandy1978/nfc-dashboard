@@ -8,19 +8,19 @@ export default function AdminPage() {
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
 
+  // Improved error handling and link sanitization
   const generateSlug = async () => {
     setLoading(true);
     setError('');
     try {
       const res = await axios.post(`${API_BASE_URL}/api/slugs`);
       setGeneratedSlug(res.data.slug);
-      setGeneratedLink(res.data.link);
+      setGeneratedLink(encodeURI(res.data.link)); // Sanitize the generated link
     } catch (err: any) {
-      if (err.response && err.response.status === 409) {
-        setError('Slug collision – please try again.');
-      } else {
-        setError('Error generating slug.');
-      }
+      const errorMessage = err.response?.status === 409
+        ? 'Slug collision – please try again.'
+        : (err.message || 'Error generating slug.');
+      setError(errorMessage);
       console.error(err);
     } finally {
       setLoading(false);

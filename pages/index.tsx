@@ -96,7 +96,7 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
       if (storedDeviceId) {
         setDeviceId(storedDeviceId);
       } else {
-        const newId = Math.random().toString(36).substring(2, 15);
+        const newId = crypto.randomUUID(); // Use crypto.randomUUID for better uniqueness
         localStorage.setItem("deviceId", newId);
         setDeviceId(newId);
       }
@@ -193,8 +193,9 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
       // Update the user state with the final username if generated.
       setUser((prev) => ({ ...prev, username: finalUsername }));
       alert("Profile saved successfully!");
-    } catch (err: any) {
-      alert("Error saving profile: " + err.message);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Unknown error occurred";
+      alert("Error saving profile: " + errorMessage);
     }
   };
 
@@ -248,6 +249,10 @@ END:VCARD`.trim();
   const handleAppointmentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAppointmentError("");
+    if (!appointment.date || !appointment.time) {
+      setAppointmentError("Please provide both date and time for the appointment.");
+      return;
+    }
     const appointmentDateTime = new Date(`${appointment.date}T${appointment.time}`);
     if (appointmentDateTime <= new Date()) {
       setAppointmentError("Please choose a future date and time for your appointment.");
@@ -281,15 +286,7 @@ END:VCARD`.trim();
   const generateGoogleCalendarLink = (appt: AppointmentData) => {
     const startDateTime = new Date(`${appt.date}T${appt.time}`);
     const endDateTime = new Date(startDateTime.getTime() + 30 * 60000);
-    const pad = (num: number) => (num < 10 ? "0" + num : num);
-    const formatDate = (date: Date) =>
-      date.getFullYear().toString() +
-      pad(date.getMonth() + 1) +
-      pad(date.getDate()) +
-      "T" +
-      pad(date.getHours()) +
-      pad(date.getMinutes()) +
-      "00Z";
+    const formatDate = (date: Date) => date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
     const start = formatDate(startDateTime);
     const end = formatDate(endDateTime);
     const details = encodeURIComponent("Appointment requested via Virtual Card");
@@ -391,7 +388,7 @@ END:VCARD`.trim();
               <div className="mt-4">
                 <p className="text-sm font-semibold dark:text-white mb-2">Scan to download vCard</p>
                 <QRCodeCanvas
-                  value={`BEGIN:VCARD\nVERSION:3.0\nFN:${user.name}\nTITLE:${user.title}\nEMAIL:${user.email}\nURL:${user.website}\nEND:VCARD`}
+                  value={`BEGIN:VCARD\nVERSION:3.0\nFN:${encodeURIComponent(user.name)}\nTITLE:${encodeURIComponent(user.title)}\nEMAIL:${encodeURIComponent(user.email)}\nURL:${encodeURIComponent(user.website)}\nEND:VCARD`}
                   size={128}
                 />
               </div>
@@ -479,9 +476,10 @@ function ContactRow({ icon, label, value, onChange, edit, link }: ContactRowProp
         {icon}
       </div>
       <div className="flex-1">
-        <p className="text-sm font-semibold mb-1">{label}</p>
+        <label className="text-sm font-semibold mb-1" htmlFor={label}>{label}</label>
         {edit ? (
           <input
+            id={label}
             className="text-xs bg-transparent border-b w-full focus:outline-none dark:text-white"
             value={value}
             onChange={(e) => onChange(e.target.value)}
