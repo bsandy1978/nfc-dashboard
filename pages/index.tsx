@@ -476,7 +476,7 @@ function ContactRow({ icon, label, value, onChange, edit, link }: ContactRowProp
         {icon}
       </div>
       <div className="flex-1">
-        <label className="text-sm font-semibold mb-1" htmlFor={label}>{label}</label>
+        <label className="text-sm font-semibold mb-1 block" htmlFor={label}>{label}</label>
         {edit ? (
           <input
             id={label}
@@ -489,7 +489,7 @@ function ContactRow({ icon, label, value, onChange, edit, link }: ContactRowProp
             href={link}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-blue-500 hover:underline break-all"
+            className="text-xs text-blue-500 hover:underline break-all mt-1 block"
           >
             {value}
           </a>
