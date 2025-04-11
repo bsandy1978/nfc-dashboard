@@ -92,13 +92,18 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
   // Initialize deviceId (client only)
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const storedDeviceId = localStorage.getItem("deviceId");
-      if (storedDeviceId) {
-        setDeviceId(storedDeviceId);
-      } else {
-        const newId = crypto.randomUUID(); // Use crypto.randomUUID for better uniqueness
-        localStorage.setItem("deviceId", newId);
-        setDeviceId(newId);
+      try {
+        const storedDeviceId = localStorage.getItem("deviceId");
+        if (storedDeviceId) {
+          setDeviceId(storedDeviceId);
+        } else {
+          const newId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+          localStorage.setItem("deviceId", newId);
+          setDeviceId(newId);
+        }
+      } catch (storageError) {
+        console.error("Error accessing localStorage:", storageError);
+        setDeviceId(`${Date.now()}-${Math.random()}`);
       }
     }
   }, []);
@@ -254,8 +259,8 @@ END:VCARD`.trim();
       return;
     }
     const appointmentDateTime = new Date(`${appointment.date}T${appointment.time}`);
-    if (appointmentDateTime <= new Date()) {
-      setAppointmentError("Please choose a future date and time for your appointment.");
+    if (isNaN(appointmentDateTime.getTime()) || appointmentDateTime <= new Date()) {
+      setAppointmentError("Please choose a valid future date and time for your appointment.");
       return;
     }
     try {
@@ -388,7 +393,7 @@ END:VCARD`.trim();
               <div className="mt-4">
                 <p className="text-sm font-semibold dark:text-white mb-2">Scan to download vCard</p>
                 <QRCodeCanvas
-                  value={`BEGIN:VCARD\nVERSION:3.0\nFN:${encodeURIComponent(user.name)}\nTITLE:${encodeURIComponent(user.title)}\nEMAIL:${encodeURIComponent(user.email)}\nURL:${encodeURIComponent(user.website)}\nEND:VCARD`}
+                  value={`BEGIN:VCARD\nVERSION:3.0\nFN:${encodeURIComponent(user.name || "")}\nTITLE:${encodeURIComponent(user.title || "")}\nEMAIL:${encodeURIComponent(user.email || "")}\nURL:${encodeURIComponent(user.website || "")}\nEND:VCARD`}
                   size={128}
                 />
               </div>

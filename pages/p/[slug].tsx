@@ -45,6 +45,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
+  // Add a fallback for crypto.randomUUID and handle localStorage errors
   useEffect(() => {
     if (!slug || typeof slug !== 'string') return;
 
@@ -56,11 +57,16 @@ export default function ProfilePage() {
         const profileData = res.data;
         setProfile(profileData);
 
-        // Use crypto.randomUUID for better uniqueness
-        let deviceId = localStorage.getItem("deviceId");
-        if (!deviceId) {
-          deviceId = crypto.randomUUID();
-          localStorage.setItem("deviceId", deviceId);
+        let deviceId;
+        try {
+          deviceId = localStorage.getItem("deviceId");
+          if (!deviceId) {
+            deviceId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+            localStorage.setItem("deviceId", deviceId);
+          }
+        } catch (storageError) {
+          console.error("Error accessing localStorage:", storageError);
+          deviceId = `${Date.now()}-${Math.random()}`;
         }
 
         if (!profileData.ownerDeviceId) {
@@ -236,8 +242,9 @@ END:VCARD`.trim();
 
             <div className="mt-4">
               <p className="text-sm font-semibold dark:text-white mb-2">Scan to download vCard</p>
+              {/* Ensure QRCodeCanvas handles empty fields gracefully */}
               <QRCodeCanvas
-                value={`BEGIN:VCARD\nVERSION:3.0\nFN:${encodeURIComponent(profile.name)}\nTITLE:${encodeURIComponent(profile.title)}\nEMAIL:${encodeURIComponent(profile.email)}\nURL:${encodeURIComponent(profile.website)}\nEND:VCARD`}
+                value={`BEGIN:VCARD\nVERSION:3.0\nFN:${encodeURIComponent(profile.name || "")}\nTITLE:${encodeURIComponent(profile.title || "")}\nEMAIL:${encodeURIComponent(profile.email || "")}\nURL:${encodeURIComponent(profile.website || "")}\nEND:VCARD`}
                 size={128}
               />
             </div>
