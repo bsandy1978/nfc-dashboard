@@ -6,7 +6,8 @@ import {
 } from "react-icons/fa";
 import { EnvelopeIcon } from "@heroicons/react/24/outline";
 import { QRCodeCanvas } from "qrcode.react";
-import { useSession } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
+import { GoogleLogin } from '@react-oauth/google';
 
 interface UserProfileData {
   username?: string;
@@ -35,9 +36,39 @@ interface HomeProps {
   initialEditMode?: boolean;
 }
 
+type ContactRowProps = {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  edit: boolean;
+  link: string;
+};
+
+function ContactRow({ icon, label, value, onChange, edit, link }: ContactRowProps) {
+  return (
+    <div className="flex items-center space-x-2">
+      {icon}
+      <span>{label}:</span>
+      {edit ? (
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="border rounded px-2 py-1"
+        />
+      ) : (
+        <a href={link} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+          {value}
+        </a>
+      )}
+    </div>
+  );
+}
+
 export default function Home({ initialData, initialEditMode = true }: HomeProps) {
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
 
   // Add error handling utility
   const handleApiError = (error: any) => {
@@ -194,6 +225,10 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
   };
 
   const handleSaveProfile = async () => {
+    if (!session) {
+      alert('Please log in to save your profile.');
+      return;
+    }
     try {
       if (!deviceId) {
         alert("Device ID not initialized. Please try again.");
@@ -330,235 +365,215 @@ END:VCARD`.trim();
     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${text}&dates=${start}/${end}&details=${details}`;
   };
 
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      // Prompt for Google login if not authenticated
+      signIn('google', { callbackUrl: window.location.href });
+    }
+  }, [status]);
+
   return (
-    <main className={`min-h-screen ${themeClasses[theme]} transition-colors text-gray-800 dark:text-gray-100`}>
-      <div className="max-w-md mx-auto p-4">
-        {/* Top Controls */}
-        <div className="mb-4 flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <label htmlFor="themeSelect" className="text-sm font-semibold">Theme:</label>
-            <select
-              id="themeSelect"
-              value={theme}
-              onChange={(e) => setTheme(e.target.value as typeof theme)}
-              className="p-1 rounded border dark:bg-gray-800 dark:text-white"
-            >
-              <option value="default">Default</option>
-              <option value="ocean">Ocean</option>
-              <option value="forest">Forest</option>
-              <option value="sunset">Sunset</option>
-            </select>
-          </div>
-          <button onClick={() => setDarkMode(!darkMode)} className="text-2xl transition">
-            {darkMode ? <FaSun /> : <FaMoon />}
-          </button>
+    <div className={`min-h-screen ${themeClasses[theme]}`}>
+      {status === 'loading' ? (
+        <div className="flex justify-center items-center h-screen">
+          <p>Loading...</p>
         </div>
-
-        {/* Profile Card */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-4 ring-1 ring-blue-100 dark:ring-blue-900">
-          <div className="flex flex-col items-center space-y-2">
-            <div className="relative">
-              <img
-                src={user.avatar}
-                alt="Avatar"
-                className={`w-28 h-28 rounded-full border-4 border-white dark:border-gray-700 shadow-xl cursor-pointer hover:scale-105 transition duration-300 ${isAvatarUploading ? "opacity-50" : ""}`}
-                onClick={() => isOwner && fileInputRef.current?.click()}
-              />
-              {isAvatarUploading && <FaSpinner className="absolute inset-0 m-auto text-3xl animate-spin" />}
-            </div>
-            <input type="file" ref={fileInputRef} hidden accept="image/*" onChange={handleAvatarUpload} />
-
-            {/* For owners in edit mode, render inputs; for everyone else, render plain text */}
-            {isOwner && editMode ? (
-              <>
-                <input
-                  className="text-lg font-semibold text-center bg-transparent border-b dark:text-white"
-                  value={user.name}
-                  onChange={(e) => handleChange("name", e.target.value)}
-                />
-                <input
-                  className="text-sm text-center bg-transparent border-b dark:text-gray-300"
-                  value={user.title}
-                  onChange={(e) => handleChange("title", e.target.value)}
-                />
-                <input
-                  className="text-xs text-center bg-transparent border-b dark:text-gray-400"
-                  value={user.subtitle}
-                  onChange={(e) => handleChange("subtitle", e.target.value)}
-                />
-              </>
-            ) : (
-              <>
-                <h1 className="text-xl font-bold text-center dark:text-white">{user.name}</h1>
-                <p className="text-sm text-center dark:text-gray-300">{user.title}</p>
-                <p className="text-xs text-center dark:text-gray-400">{user.subtitle}</p>
-              </>
-            )}
-
-            {/* Action Buttons: Only show Edit/Save if owner */}
-            <div className="flex w-full gap-2 mt-3">
-              {isOwner && (
-                <button
-                  onClick={handleEditButtonClick}
-                  className="flex-1 text-sm bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-2 rounded-md flex justify-center items-center gap-1"
+      ) : session ? (
+        <main className={`min-h-screen ${themeClasses[theme]} transition-colors text-gray-800 dark:text-gray-100`}>
+          <div className="max-w-md mx-auto p-4">
+            {/* Top Controls */}
+            <div className="mb-4 flex justify-between items-center">
+              <div className="flex items-center space-x-2">
+                <label htmlFor="themeSelect" className="text-sm font-semibold">Theme:</label>
+                <select
+                  id="themeSelect"
+                  value={theme}
+                  onChange={(e) => setTheme(e.target.value as typeof theme)}
+                  className="p-1 rounded border dark:bg-gray-800 dark:text-white"
                 >
-                  <FaEdit className="text-lg" /> {editMode ? "Save" : "Edit Profile"}
-                </button>
-              )}
-              <button
-                onClick={handleDownloadVCF}
-                className="flex-1 border border-blue-500 text-blue-500 px-3 py-2 rounded-md flex items-center justify-center"
-              >
-                <FaDownload />
-              </button>
-              <button
-                onClick={handleShare}
-                className="flex-1 border border-green-500 text-green-500 px-3 py-2 rounded-md flex items-center justify-center"
-              >
-                <FaShareAlt />
+                  <option value="default">Default</option>
+                  <option value="ocean">Ocean</option>
+                  <option value="forest">Forest</option>
+                  <option value="sunset">Sunset</option>
+                </select>
+              </div>
+              <button onClick={() => setDarkMode(!darkMode)} className="text-2xl transition">
+                {darkMode ? <FaSun /> : <FaMoon />}
               </button>
             </div>
 
-            {/* QR Code: Always enabled in both view and edit modes */}
-            {showQRCode && (
-              <div className="mt-4">
-                <p className="text-sm font-semibold dark:text-white mb-2">Scan to download vCard</p>
-                <QRCodeCanvas
-                  value={`BEGIN:VCARD\nVERSION:3.0\nFN:${encodeURIComponent(user.name || "")}\nTITLE:${encodeURIComponent(user.title || "")}\nEMAIL:${encodeURIComponent(user.email || "")}\nURL:${encodeURIComponent(user.website || "")}\nEND:VCARD`}
-                  size={128}
-                />
-              </div>
-            )}
-            <button onClick={() => setShowQRCode(!showQRCode)} className="mt-2 text-xs text-blue-500 hover:underline">
-              {showQRCode ? "Hide QR Code" : "Show QR Code"}
-            </button>
-          </div>
-
-          {/* Contact Info */}
-          <div className="mt-6 divide-y divide-gray-200 dark:divide-gray-700">
-            <ContactRow icon={<EnvelopeIcon className="w-6 h-6 text-blue-500" />} label="Email" value={user.email} onChange={(val) => handleChange("email", val)} edit={isOwner && editMode} link={`mailto:${user.email}`} />
-            <ContactRow icon={<FaInstagram className="text-2xl text-pink-600" />} label="Instagram" value={user.instagram} onChange={(val) => handleChange("instagram", val)} edit={isOwner && editMode} link={`https://instagram.com/${user.instagram?.replace("@", "")}`} />
-            <ContactRow icon={<FaLinkedin className="text-2xl text-blue-700" />} label="LinkedIn" value={user.linkedin} onChange={(val) => handleChange("linkedin", val)} edit={isOwner && editMode} link={`https://linkedin.com/in/${user.linkedin}`} />
-            <ContactRow icon={<FaTwitter className="text-2xl text-sky-400" />} label="Twitter" value={user.twitter} onChange={(val) => handleChange("twitter", val)} edit={isOwner && editMode} link={`https://twitter.com/${user.twitter?.replace("@", "")}`} />
-            <ContactRow icon={<FaGlobe className="text-2xl text-gray-500" />} label="Website" value={user.website} onChange={(val) => handleChange("website", val)} edit={isOwner && editMode} link={user.website?.startsWith('http') ? user.website : `https://${user.website}`} />
-            <ContactRow icon={<FaMapMarkerAlt className="text-2xl text-red-500" />} label="Location" value={user.location} onChange={(val) => handleChange("location", val)} edit={isOwner && editMode} link={`https://maps.google.com/?q=${user.location}`} />
-            <ContactRow icon={<FaMoneyBill className="text-2xl text-green-500" />} label="UPI ID" value={user.upi} onChange={(val) => handleChange("upi", val)} edit={isOwner && editMode} link={`upi://pay?pa=${user.upi}`} />
-          </div>
-
-          {/* Appointment Form */}
-          <div className="mt-6 border-t pt-4">
-            <h3 className="text-md font-semibold mb-2 dark:text-white">Schedule a Call</h3>
-            {appointmentConfirmed ? (
-              <div className="bg-green-50 dark:bg-green-900 p-3 rounded-md">
-                <p className="text-sm text-green-700 dark:text-green-300 mb-2">Appointment confirmed!</p>
-                <p className="text-xs">Date: {appointmentConfirmed.date} at {appointmentConfirmed.time}</p>
-                <a 
-                  href={generateGoogleCalendarLink(appointmentConfirmed)}
-                  target="_blank"
-                  rel="noopener noreferrer" 
-                  className="text-xs text-blue-500 hover:underline mt-2 inline-block"
-                >
-                  Add to Google Calendar
-                </a>
-                <button 
-                  onClick={() => setAppointmentConfirmed(null)} 
-                  className="text-xs text-red-500 hover:underline mt-2 ml-2"
-                >
-                  Schedule another
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleAppointmentSubmit} className="space-y-3">
-                <input
-                  type="text"
-                  placeholder="Your Name"
-                  value={appointment.name}
-                  onChange={(e) => setAppointment({ ...appointment, name: e.target.value })}
-                  className="w-full text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:border-gray-700"
-                  required
-                />
-                <input
-                  type="email"
-                  placeholder="Your Email"
-                  value={appointment.email}
-                  onChange={(e) => setAppointment({ ...appointment, email: e.target.value })}
-                  className="w-full text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:border-gray-700"
-                  required
-                />
-                <div className="flex gap-2">
-                  <input
-                    type="date"
-                    value={appointment.date}
-                    onChange={(e) => setAppointment({ ...appointment, date: e.target.value })}
-                    className="w-1/2 text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
-                    required
+            {/* Profile Card */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-4 ring-1 ring-blue-100 dark:ring-blue-900">
+              <div className="flex flex-col items-center space-y-2">
+                <div className="relative">
+                  <img
+                    src={user.avatar}
+                    alt="Avatar"
+                    className={`w-28 h-28 rounded-full border-4 border-white dark:border-gray-700 shadow-xl cursor-pointer hover:scale-105 transition duration-300 ${isAvatarUploading ? "opacity-50" : ""}`}
+                    onClick={() => isOwner && fileInputRef.current?.click()}
                   />
-                  <input
-                    type="time"
-                    value={appointment.time}
-                    onChange={(e) => setAppointment({ ...appointment, time: e.target.value })}
-                    className="w-1/2 text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
-                    required
-                  />
+                  {isAvatarUploading && <FaSpinner className="absolute inset-0 m-auto text-3xl animate-spin" />}
                 </div>
-                {appointmentError && <p className="text-xs text-red-500 dark:text-red-400">{appointmentError}</p>}
-                <button
-                  type="submit"
-                  disabled={appointmentRequestSent}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm py-2 rounded-md flex justify-center items-center"
-                >
-                  {appointmentRequestSent ? (
-                    <>
-                      <FaSpinner className="animate-spin mr-2" /> Processing...
-                    </>
-                  ) : (
-                    "Book Appointment"
+                <input type="file" ref={fileInputRef} hidden accept="image/*" onChange={handleAvatarUpload} />
+
+                {/* For owners in edit mode, render inputs; for everyone else, render plain text */}
+                {isOwner && editMode ? (
+                  <>
+                    <input
+                      className="text-lg font-semibold text-center bg-transparent border-b dark:text-white"
+                      value={user.name}
+                      onChange={(e) => handleChange("name", e.target.value)}
+                    />
+                    <input
+                      className="text-sm text-center bg-transparent border-b dark:text-gray-300"
+                      value={user.title}
+                      onChange={(e) => handleChange("title", e.target.value)}
+                    />
+                    <input
+                      className="text-xs text-center bg-transparent border-b dark:text-gray-400"
+                      value={user.subtitle}
+                      onChange={(e) => handleChange("subtitle", e.target.value)}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <h1 className="text-xl font-bold text-center dark:text-white">{user.name}</h1>
+                    <p className="text-sm text-center dark:text-gray-300">{user.title}</p>
+                    <p className="text-xs text-center dark:text-gray-400">{user.subtitle}</p>
+                  </>
+                )}
+
+                {/* Action Buttons: Only show Edit/Save if owner */}
+                <div className="flex w-full gap-2 mt-3">
+                  {isOwner && (
+                    <button
+                      onClick={handleEditButtonClick}
+                      className="flex-1 text-sm bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-2 rounded-md flex justify-center items-center gap-1"
+                    >
+                      <FaEdit className="text-lg" /> {editMode ? "Save" : "Edit Profile"}
+                    </button>
                   )}
+                  <button
+                    onClick={handleDownloadVCF}
+                    className="flex-1 border border-blue-500 text-blue-500 px-3 py-2 rounded-md flex items-center justify-center"
+                  >
+                    <FaDownload />
+                  </button>
+                  <button
+                    onClick={handleShare}
+                    className="flex-1 border border-green-500 text-green-500 px-3 py-2 rounded-md flex items-center justify-center"
+                  >
+                    <FaShareAlt />
+                  </button>
+                </div>
+
+                {/* QR Code: Always enabled in both view and edit modes */}
+                {showQRCode && (
+                  <div className="mt-4">
+                    <p className="text-sm font-semibold dark:text-white mb-2">Scan to download vCard</p>
+                    <QRCodeCanvas
+                      value={`BEGIN:VCARD\nVERSION:3.0\nFN:${encodeURIComponent(user.name || "")}\nTITLE:${encodeURIComponent(user.title || "")}\nEMAIL:${encodeURIComponent(user.email || "")}\nURL:${encodeURIComponent(user.website || "")}\nEND:VCARD`}
+                      size={128}
+                    />
+                  </div>
+                )}
+                <button onClick={() => setShowQRCode(!showQRCode)} className="mt-2 text-xs text-blue-500 hover:underline">
+                  {showQRCode ? "Hide QR Code" : "Show QR Code"}
                 </button>
-              </form>
-            )}
+              </div>
+
+              {/* Contact Info */}
+              <div className="mt-6 divide-y divide-gray-200 dark:divide-gray-700">
+                <ContactRow icon={<EnvelopeIcon className="w-6 h-6 text-blue-500" />} label="Email" value={user.email} onChange={(val) => handleChange("email", val)} edit={isOwner && editMode} link={`mailto:${user.email}`} />
+                <ContactRow icon={<FaInstagram className="text-2xl text-pink-600" />} label="Instagram" value={user.instagram} onChange={(val) => handleChange("instagram", val)} edit={isOwner && editMode} link={`https://instagram.com/${user.instagram?.replace("@", "")}`} />
+                <ContactRow icon={<FaLinkedin className="text-2xl text-blue-700" />} label="LinkedIn" value={user.linkedin} onChange={(val) => handleChange("linkedin", val)} edit={isOwner && editMode} link={`https://linkedin.com/in/${user.linkedin}`} />
+                <ContactRow icon={<FaTwitter className="text-2xl text-sky-400" />} label="Twitter" value={user.twitter} onChange={(val) => handleChange("twitter", val)} edit={isOwner && editMode} link={`https://twitter.com/${user.twitter?.replace("@", "")}`} />
+                <ContactRow icon={<FaGlobe className="text-2xl text-gray-500" />} label="Website" value={user.website} onChange={(val) => handleChange("website", val)} edit={isOwner && editMode} link={user.website?.startsWith('http') ? user.website : `https://${user.website}`} />
+                <ContactRow icon={<FaMapMarkerAlt className="text-2xl text-red-500" />} label="Location" value={user.location} onChange={(val) => handleChange("location", val)} edit={isOwner && editMode} link={`https://maps.google.com/?q=${user.location}`} />
+                <ContactRow icon={<FaMoneyBill className="text-2xl text-green-500" />} label="UPI ID" value={user.upi} onChange={(val) => handleChange("upi", val)} edit={isOwner && editMode} link={`upi://pay?pa=${user.upi}`} />
+              </div>
+
+              {/* Appointment Form */}
+              <div className="mt-6 border-t pt-4">
+                <h3 className="text-md font-semibold mb-2 dark:text-white">Schedule a Call</h3>
+                {appointmentConfirmed ? (
+                  <div className="bg-green-50 dark:bg-green-900 p-3 rounded-md">
+                    <p className="text-sm text-green-700 dark:text-green-300 mb-2">Appointment confirmed!</p>
+                    <p className="text-xs">Date: {appointmentConfirmed.date} at {appointmentConfirmed.time}</p>
+                    <a 
+                      href={generateGoogleCalendarLink(appointmentConfirmed)}
+                      target="_blank"
+                      rel="noopener noreferrer" 
+                      className="text-xs text-blue-500 hover:underline mt-2 inline-block"
+                    >
+                      Add to Google Calendar
+                    </a>
+                    <button 
+                      onClick={() => setAppointmentConfirmed(null)} 
+                      className="text-xs text-red-500 hover:underline mt-2 ml-2"
+                    >
+                      Schedule another
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleAppointmentSubmit} className="space-y-3">
+                    <input
+                      type="text"
+                      placeholder="Your Name"
+                      value={appointment.name}
+                      onChange={(e) => setAppointment({ ...appointment, name: e.target.value })}
+                      className="w-full text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:border-gray-700"
+                      required
+                    />
+                    <input
+                      type="email"
+                      placeholder="Your Email"
+                      value={appointment.email}
+                      onChange={(e) => setAppointment({ ...appointment, email: e.target.value })}
+                      className="w-full text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:border-gray-700"
+                      required
+                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="date"
+                        value={appointment.date}
+                        onChange={(e) => setAppointment({ ...appointment, date: e.target.value })}
+                        className="w-1/2 text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
+                        required
+                      />
+                      <input
+                        type="time"
+                        value={appointment.time}
+                        onChange={(e) => setAppointment({ ...appointment, time: e.target.value })}
+                        className="w-1/2 text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
+                        required
+                      />
+                    </div>
+                    {appointmentError && <p className="text-xs text-red-500 dark:text-red-400">{appointmentError}</p>}
+                    <button
+                      type="submit"
+                      disabled={appointmentRequestSent}
+                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm py-2 rounded-md flex justify-center items-center"
+                    >
+                      {appointmentRequestSent ? (
+                        <>
+                          <FaSpinner className="animate-spin mr-2" /> Processing...
+                        </>
+                      ) : (
+                        "Book Appointment"
+                      )}
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
           </div>
+        </main>
+      ) : (
+        <div className="flex justify-center items-center h-screen">
+          <p>Please log in to continue.</p>
         </div>
-      </div>
-    </main>
-  );
-}
-
-type ContactRowProps = {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  onChange: (val: string) => void;
-  edit: boolean;
-  link: string;
-};
-
-function ContactRow({ icon, label, value, onChange, edit, link }: ContactRowProps) {
-  return (
-    <div className="flex items-center gap-3 py-3 group hover:bg-blue-50 dark:hover:bg-gray-700 transition px-3">
-      <div className="text-2xl w-10 h-10 flex justify-center items-center rounded-full bg-white dark:bg-gray-800 shadow-md">
-        {icon}
-      </div>
-      <div className="flex-1">
-        <label className="text-sm font-semibold mb-1 block" htmlFor={label}>{label}</label>
-        {edit ? (
-          <input
-            id={label}
-            className="text-xs bg-transparent border-b w-full focus:outline-none dark:text-white"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-          />
-        ) : (
-          <a
-            href={link}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-blue-500 hover:underline break-all mt-1 block"
-          >
-            {value}
-          </a>
-        )}
-      </div>
+      )}
     </div>
   );
 }

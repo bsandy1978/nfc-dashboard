@@ -241,11 +241,11 @@ export default function ProfilePage() {
               />
               {isOwner && editMode && (
                 <label className="absolute bottom-0 right-0 bg-blue-500 text-white p-2 rounded-full cursor-pointer">
-                  <input
-                    type="file"
+            <input
+              type="file"
                     accept="image/*"
                     onChange={handleAvatarUpload}
-                    className="hidden"
+              className="hidden"
                   />
                   {isAvatarUploading ? <FaSpinner className="animate-spin" /> : "Change"}
                 </label>
@@ -253,37 +253,37 @@ export default function ProfilePage() {
             </div>
             
             {editMode ? (
-              <input
+                <input
                 type="text"
-                name="name"
-                value={profile.name || ""}
-                onChange={handleChange}
+                  name="name"
+                  value={profile.name || ""}
+                  onChange={handleChange}
                 placeholder="Your Name"
                 className="mt-4 w-full p-2 border rounded"
-              />
+                />
             ) : (
               <h2 className="mt-4 text-xl font-semibold">{profile.name}</h2>
             )}
             
             {editMode ? (
-              <input
+                <input
                 type="text"
-                name="title"
-                value={profile.title || ""}
-                onChange={handleChange}
+                  name="title"
+                  value={profile.title || ""}
+                  onChange={handleChange}
                 placeholder="Your Title"
                 className="mt-2 w-full p-2 border rounded"
-              />
+                />
             ) : (
               <p className="text-gray-600">{profile.title}</p>
             )}
             
             {editMode ? (
-              <input
+                <input
                 type="text"
-                name="subtitle"
-                value={profile.subtitle || ""}
-                onChange={handleChange}
+                  name="subtitle"
+                  value={profile.subtitle || ""}
+                  onChange={handleChange}
                 placeholder="Your Subtitle"
                 className="mt-2 w-full p-2 border rounded"
               />
@@ -291,7 +291,7 @@ export default function ProfilePage() {
               <p className="text-sm text-gray-500">{profile.subtitle}</p>
             )}
           </div>
-          
+
           <div className="space-y-4">
             {profile.email && (
               <div className="flex items-center">
@@ -309,26 +309,26 @@ export default function ProfilePage() {
                     {profile.email}
                   </a>
                 )}
-              </div>
+                  </div>
             )}
             
             {profile.instagram && (
               <div className="flex items-center">
                 <FaInstagram className="h-5 w-5 text-pink-500 mr-2" />
                 {editMode ? (
-                  <input
+                      <input
                     type="text"
                     name="instagram"
                     value={profile.instagram}
-                    onChange={handleChange}
+                        onChange={handleChange}
                     className="flex-1 p-2 border rounded"
-                  />
-                ) : (
+                        />
+                    ) : (
                   <a href={`https://instagram.com/${profile.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
                     {profile.instagram}
-                  </a>
-                )}
-              </div>
+                      </a>
+                    )}
+                  </div>
             )}
             
             {profile.linkedin && (
@@ -347,15 +347,15 @@ export default function ProfilePage() {
                     {profile.linkedin}
                   </a>
                 )}
-              </div>
+                </div>
             )}
             
             {profile.twitter && (
               <div className="flex items-center">
                 <FaTwitter className="h-5 w-5 text-blue-400 mr-2" />
                 {editMode ? (
-                  <input
-                    type="text"
+              <input
+                type="text"
                     name="twitter"
                     value={profile.twitter}
                     onChange={handleChange}
@@ -373,7 +373,7 @@ export default function ProfilePage() {
               <div className="flex items-center">
                 <FaGlobe className="h-5 w-5 text-gray-500 mr-2" />
                 {editMode ? (
-                  <input
+              <input
                     type="text"
                     name="website"
                     value={profile.website}
@@ -392,7 +392,7 @@ export default function ProfilePage() {
               <div className="flex items-center">
                 <FaMapMarkerAlt className="h-5 w-5 text-red-500 mr-2" />
                 {editMode ? (
-                  <input
+                <input
                     type="text"
                     name="location"
                     value={profile.location}
@@ -411,7 +411,7 @@ export default function ProfilePage() {
               <div className="flex items-center">
                 <FaMoneyBill className="h-5 w-5 text-green-500 mr-2" />
                 {editMode ? (
-                  <input
+                <input
                     type="text"
                     name="upi"
                     value={profile.upi}
