@@ -31,6 +31,7 @@ const corsOptions = {
         // Add your frontend URL when deployed
         'https://nfc-dashboard.onrender.com', 
         'https://nfc-dashboard-frontend.onrender.com',
+        'https://nfc-dashboard-five.vercel.app',
         // Keep localhost for development
         'http://localhost:3000'
       ] 
