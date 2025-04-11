@@ -406,7 +406,7 @@ END:VCARD`.trim();
             <ContactRow icon={<FaTwitter className="text-2xl text-sky-400" />} label="Twitter" value={user.twitter} onChange={(val) => handleChange("twitter", val)} edit={isOwner && editMode} link={`https://twitter.com/${user.twitter?.replace("@", "")}`} />
             <ContactRow icon={<FaGlobe className="text-2xl text-gray-500" />} label="Website" value={user.website} onChange={(val) => handleChange("website", val)} edit={isOwner && editMode} link={`https://${user.website}`} />
             <ContactRow icon={<FaMapMarkerAlt className="text-2xl text-red-500" />} label="Location" value={user.location} onChange={(val) => handleChange("location", val)} edit={isOwner && editMode} link={`https://maps.google.com/?q=${user.location}`} />
-            <ContactRow icon={<FaMoneyBill className="text-2xl text-green-500" />} label="UPI" value={user.upi} onChange={(val) => handleChange("upi", val)} edit={isOwner && editMode} link={`upi://pay?pa=${user.upi}`} />
+            <ContactRow icon={<FaMoneyBill className="text-2xl text-green-500" />} label="UPI ID" value={user.upi} onChange={(val) => handleChange("upi", val)} edit={isOwner && editMode} link={`upi://pay?pa=${user.upi}`} />
           </div>
 
           {/* Appointment Form */}
