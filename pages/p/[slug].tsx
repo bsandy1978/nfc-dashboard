@@ -44,6 +44,7 @@ export default function ProfilePage() {
   const [isOwner, setIsOwner] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [isAvatarUploading, setIsAvatarUploading] = useState(false);
 
   // Add a fallback for crypto.randomUUID and handle localStorage errors
   useEffect(() => {
@@ -137,12 +138,12 @@ export default function ProfilePage() {
               <img
                 src={profile.avatar || "https://i.pravatar.cc/150?img=65"}
                 alt="Avatar"
-                className="w-28 h-28 rounded-full border-4 border-white dark:border-gray-700 shadow-xl cursor-pointer hover:scale-105 transition duration-300"
+                className={`w-28 h-28 rounded-full border-4 border-white dark:border-gray-700 shadow-xl cursor-pointer hover:scale-105 transition duration-300 ${isAvatarUploading ? "opacity-50" : ""}`}
                 onClick={() =>
                   isOwner && document.getElementById("fileInput")?.click()
                 }
               />
-              {/* You can add a spinner here if needed */}
+              {isAvatarUploading && <FaSpinner className="absolute inset-0 m-auto text-3xl animate-spin" />}
             </div>
             <input
               type="file"
@@ -152,9 +153,11 @@ export default function ProfilePage() {
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) {
+                  setIsAvatarUploading(true);
                   const reader = new FileReader();
                   reader.onloadend = () => {
                     setProfile({ ...profile, avatar: reader.result as string });
+                    setIsAvatarUploading(false);
                   };
                   reader.readAsDataURL(file);
                 }
@@ -242,7 +245,6 @@ END:VCARD`.trim();
 
             <div className="mt-4">
               <p className="text-sm font-semibold dark:text-white mb-2">Scan to download vCard</p>
-              {/* Ensure QRCodeCanvas handles empty fields gracefully */}
               <QRCodeCanvas
                 value={`BEGIN:VCARD\nVERSION:3.0\nFN:${encodeURIComponent(profile.name || "")}\nTITLE:${encodeURIComponent(profile.title || "")}\nEMAIL:${encodeURIComponent(profile.email || "")}\nURL:${encodeURIComponent(profile.website || "")}\nEND:VCARD`}
                 size={128}
@@ -251,41 +253,79 @@ END:VCARD`.trim();
           </div>
 
           <div className="mt-6 divide-y divide-gray-200 dark:divide-gray-700">
-            {[
-              { label: "Email", field: "email", buildLink: (val: string) => `mailto:${val}` },
-              { label: "Instagram", field: "instagram", buildLink: (val: string) => `https://instagram.com/${val.replace("@", "")}` },
-              { label: "LinkedIn", field: "linkedin", buildLink: (val: string) => `https://linkedin.com/in/${val}` },
-              { label: "Twitter", field: "twitter", buildLink: (val: string) => `https://twitter.com/${val.replace("@", "")}` },
-              { label: "Website", field: "website", buildLink: (val: string) => `https://${val}` },
-              { label: "Location", field: "location", buildLink: (val: string) => `https://maps.google.com/?q=${val}` },
-              { label: "UPI", field: "upi", buildLink: (val: string) => `upi://pay?pa=${val}` },
-            ].map((item) => {
-              const value = profile[item.field as keyof UserProfile] || "";
-              const link = item.buildLink(value);
+            {fields.map((field) => {
+              let icon;
+              let linkPrefix = "";
+              
+              switch (field) {
+                case "email":
+                  icon = <EnvelopeIcon className="w-6 h-6 text-blue-500" />;
+                  linkPrefix = "mailto:";
+                  break;
+                case "linkedin":
+                  icon = <FaLinkedin className="text-2xl text-blue-700" />;
+                  linkPrefix = "https://linkedin.com/in/";
+                  break;
+                case "instagram":
+                  icon = <FaInstagram className="text-2xl text-pink-600" />;
+                  linkPrefix = "https://instagram.com/";
+                  if (profile.instagram?.startsWith("@")) {
+                    profile.instagram = profile.instagram.substring(1);
+                  }
+                  break;
+                case "twitter":
+                  icon = <FaTwitter className="text-2xl text-sky-400" />;
+                  linkPrefix = "https://twitter.com/";
+                  if (profile.twitter?.startsWith("@")) {
+                    profile.twitter = profile.twitter.substring(1);
+                  }
+                  break;
+                case "website":
+                  icon = <FaGlobe className="text-2xl text-gray-500" />;
+                  linkPrefix = profile.website?.startsWith('http') ? "" : "https://";
+                  break;
+                case "location":
+                  icon = <FaMapMarkerAlt className="text-2xl text-red-500" />;
+                  linkPrefix = "https://maps.google.com/?q=";
+                  break;
+                case "upi":
+                  icon = <FaMoneyBill className="text-2xl text-green-500" />;
+                  linkPrefix = "upi://pay?pa=";
+                  break;
+                default:
+                  icon = null;
+              }
+              
+              if (!icon || ["name", "title", "subtitle"].includes(field)) return null;
+              
               return (
-                <div key={item.field} className="flex items-center gap-3 py-3 group hover:bg-blue-50 dark:hover:bg-gray-700 transition px-3">
+                <div key={field} className="flex items-center gap-3 py-3 group hover:bg-blue-50 dark:hover:bg-gray-700 transition px-3">
                   <div className="text-2xl w-10 h-10 flex justify-center items-center rounded-full bg-white dark:bg-gray-800 shadow-md">
-                    {/* Icon placeholder: you can replace with your specific icons */}
-                    <span className="text-xl">{item.label.charAt(0)}</span>
+                    {icon}
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-semibold mb-1">{item.label}</p>
+                    <label className="text-sm font-semibold mb-1 block" htmlFor={field}>
+                      {field.charAt(0).toUpperCase() + field.slice(1)}
+                    </label>
                     {isOwner ? (
                       <input
-                        name={item.field}
-                        value={value}
-                        onChange={handleChange}
+                        id={field}
+                        name={field}
                         className="text-xs bg-transparent border-b w-full focus:outline-none dark:text-white"
-                        />
+                        value={profile[field] || ""}
+                        onChange={handleChange}
+                      />
                     ) : (
-                      <a
-                        href={link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-blue-500 hover:underline break-all"
-                      >
-                        {value}
-                      </a>
+                      profile[field] && (
+                        <a
+                          href={`${linkPrefix}${profile[field]}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-500 hover:underline break-all mt-1 block"
+                        >
+                          {profile[field]}
+                        </a>
+                      )
                     )}
                   </div>
                 </div>

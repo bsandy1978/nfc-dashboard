@@ -254,6 +254,10 @@ END:VCARD`.trim();
   const handleAppointmentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAppointmentError("");
+    if (!appointment.name || !appointment.email) {
+      setAppointmentError("Please provide your name and email address.");
+      return;
+    }
     if (!appointment.date || !appointment.time) {
       setAppointmentError("Please provide both date and time for the appointment.");
       return;
@@ -264,21 +268,30 @@ END:VCARD`.trim();
       return;
     }
     try {
+      setAppointmentRequestSent(true);
       const res = await fetch(`${API_BASE_URL}/api/appointments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(appointment),
+        body: JSON.stringify({
+          ...appointment,
+          username: user.username,
+          profileName: user.name
+        }),
       });
       if (!res.ok) {
         const data = await res.json();
         setAppointmentError(data.message || "Failed to create appointment.");
+        setAppointmentRequestSent(false);
         return;
       }
-      alert("Appointment request sent!");
+      setAppointmentConfirmed({ ...appointment });
       setAppointment({ name: "", email: "", date: "", time: "" });
+      setAppointmentRequestSent(false);
+      alert("Appointment request sent!");
     } catch (error) {
       console.error("Appointment submission error:", error);
       setAppointmentError("An error occurred. Please try again.");
+      setAppointmentRequestSent(false);
     }
   };
 
@@ -409,7 +422,7 @@ END:VCARD`.trim();
             <ContactRow icon={<FaInstagram className="text-2xl text-pink-600" />} label="Instagram" value={user.instagram} onChange={(val) => handleChange("instagram", val)} edit={isOwner && editMode} link={`https://instagram.com/${user.instagram?.replace("@", "")}`} />
             <ContactRow icon={<FaLinkedin className="text-2xl text-blue-700" />} label="LinkedIn" value={user.linkedin} onChange={(val) => handleChange("linkedin", val)} edit={isOwner && editMode} link={`https://linkedin.com/in/${user.linkedin}`} />
             <ContactRow icon={<FaTwitter className="text-2xl text-sky-400" />} label="Twitter" value={user.twitter} onChange={(val) => handleChange("twitter", val)} edit={isOwner && editMode} link={`https://twitter.com/${user.twitter?.replace("@", "")}`} />
-            <ContactRow icon={<FaGlobe className="text-2xl text-gray-500" />} label="Website" value={user.website} onChange={(val) => handleChange("website", val)} edit={isOwner && editMode} link={`https://${user.website}`} />
+            <ContactRow icon={<FaGlobe className="text-2xl text-gray-500" />} label="Website" value={user.website} onChange={(val) => handleChange("website", val)} edit={isOwner && editMode} link={user.website?.startsWith('http') ? user.website : `https://${user.website}`} />
             <ContactRow icon={<FaMapMarkerAlt className="text-2xl text-red-500" />} label="Location" value={user.location} onChange={(val) => handleChange("location", val)} edit={isOwner && editMode} link={`https://maps.google.com/?q=${user.location}`} />
             <ContactRow icon={<FaMoneyBill className="text-2xl text-green-500" />} label="UPI ID" value={user.upi} onChange={(val) => handleChange("upi", val)} edit={isOwner && editMode} link={`upi://pay?pa=${user.upi}`} />
           </div>
@@ -417,47 +430,75 @@ END:VCARD`.trim();
           {/* Appointment Form */}
           <div className="mt-6 border-t pt-4">
             <h3 className="text-md font-semibold mb-2 dark:text-white">Schedule a Call</h3>
-            <form onSubmit={handleAppointmentSubmit} className="space-y-3">
-              <input
-                type="text"
-                placeholder="Your Name"
-                value={appointment.name}
-                onChange={(e) => setAppointment({ ...appointment, name: e.target.value })}
-                className="w-full text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:border-gray-700"
-                required
-              />
-              <input
-                type="email"
-                placeholder="Your Email"
-                value={appointment.email}
-                onChange={(e) => setAppointment({ ...appointment, email: e.target.value })}
-                className="w-full text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:border-gray-700"
-                required
-              />
-              <div className="flex gap-2">
-                <input
-                  type="date"
-                  value={appointment.date}
-                  onChange={(e) => setAppointment({ ...appointment, date: e.target.value })}
-                  className="w-1/2 text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
-                  required
-                />
-                <input
-                  type="time"
-                  value={appointment.time}
-                  onChange={(e) => setAppointment({ ...appointment, time: e.target.value })}
-                  className="w-1/2 text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
-                  required
-                />
+            {appointmentConfirmed ? (
+              <div className="bg-green-50 dark:bg-green-900 p-3 rounded-md">
+                <p className="text-sm text-green-700 dark:text-green-300 mb-2">Appointment confirmed!</p>
+                <p className="text-xs">Date: {appointmentConfirmed.date} at {appointmentConfirmed.time}</p>
+                <a 
+                  href={generateGoogleCalendarLink(appointmentConfirmed)}
+                  target="_blank"
+                  rel="noopener noreferrer" 
+                  className="text-xs text-blue-500 hover:underline mt-2 inline-block"
+                >
+                  Add to Google Calendar
+                </a>
+                <button 
+                  onClick={() => setAppointmentConfirmed(null)} 
+                  className="text-xs text-red-500 hover:underline mt-2 ml-2"
+                >
+                  Schedule another
+                </button>
               </div>
-              {appointmentError && <p className="text-xs text-red-500 dark:text-red-400">{appointmentError}</p>}
-              <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm py-2 rounded-md"
-              >
-                Book Appointment
-              </button>
-            </form>
+            ) : (
+              <form onSubmit={handleAppointmentSubmit} className="space-y-3">
+                <input
+                  type="text"
+                  placeholder="Your Name"
+                  value={appointment.name}
+                  onChange={(e) => setAppointment({ ...appointment, name: e.target.value })}
+                  className="w-full text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:border-gray-700"
+                  required
+                />
+                <input
+                  type="email"
+                  placeholder="Your Email"
+                  value={appointment.email}
+                  onChange={(e) => setAppointment({ ...appointment, email: e.target.value })}
+                  className="w-full text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:border-gray-700"
+                  required
+                />
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={appointment.date}
+                    onChange={(e) => setAppointment({ ...appointment, date: e.target.value })}
+                    className="w-1/2 text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
+                    required
+                  />
+                  <input
+                    type="time"
+                    value={appointment.time}
+                    onChange={(e) => setAppointment({ ...appointment, time: e.target.value })}
+                    className="w-1/2 text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
+                    required
+                  />
+                </div>
+                {appointmentError && <p className="text-xs text-red-500 dark:text-red-400">{appointmentError}</p>}
+                <button
+                  type="submit"
+                  disabled={appointmentRequestSent}
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm py-2 rounded-md flex justify-center items-center"
+                >
+                  {appointmentRequestSent ? (
+                    <>
+                      <FaSpinner className="animate-spin mr-2" /> Processing...
+                    </>
+                  ) : (
+                    "Book Appointment"
+                  )}
+                </button>
+              </form>
+            )}
           </div>
         </div>
       </div>
