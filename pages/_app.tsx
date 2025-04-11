@@ -2,8 +2,10 @@ import '../styles/globals.css';
 import type { AppProps } from 'next/app';
 import Head from 'next/head';
 import { useEffect } from 'react';
+import { SessionProvider } from 'next-auth/react';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 
-export default function App({ Component, pageProps }: AppProps) {
+export default function App({ Component, pageProps: { session, ...pageProps } }: AppProps) {
   // Handle global errors
   useEffect(() => {
     const handleError = (event: ErrorEvent) => {
@@ -16,14 +18,16 @@ export default function App({ Component, pageProps }: AppProps) {
   }, []);
 
   return (
-    <>
-      <Head>
-        <title>NFC Dashboard - Digital Business Cards</title>
-        <meta name="description" content="Create and share your digital business card" />
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
-      <Component {...pageProps} />
-    </>
+    <SessionProvider session={session}>
+      <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}>
+        <Head>
+          <title>NFC Dashboard - Digital Business Cards</title>
+          <meta name="description" content="Create and share your digital business card" />
+          <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+          <link rel="icon" href="/favicon.ico" />
+        </Head>
+        <Component {...pageProps} />
+      </GoogleOAuthProvider>
+    </SessionProvider>
   );
 }

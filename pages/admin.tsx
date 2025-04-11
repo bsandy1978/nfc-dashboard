@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { useSession, signIn, signOut } from 'next-auth/react';
+import { GoogleLogin } from '@react-oauth/google';
 
 export default function AdminPage() {
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -9,24 +11,7 @@ export default function AdminPage() {
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const router = useRouter();
-  const [isAuthorized, setIsAuthorized] = useState<boolean>(false);
-
-  // Check for admin authorization
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        // This would typically check a cookie or session
-        // For demo purposes, we're using localStorage
-        const adminToken = localStorage.getItem('adminToken');
-        setIsAuthorized(adminToken === process.env.NEXT_PUBLIC_ADMIN_TOKEN);
-      } catch (err) {
-        console.error('Auth check error:', err);
-        setIsAuthorized(false);
-      }
-    };
-    
-    checkAuth();
-  }, []);
+  const { data: session, status } = useSession();
 
   // Improved error handling and link sanitization
   const generateSlug = async () => {
@@ -36,8 +21,7 @@ export default function AdminPage() {
       const res = await axios.post(`${API_BASE_URL}/api/slugs`, null, {
         headers: {
           'Content-Type': 'application/json',
-          // Add authorization header if you implement authentication
-          // 'Authorization': `Bearer ${adminToken}`
+          'Authorization': `Bearer ${session?.user?.email}`
         }
       });
       
@@ -64,33 +48,32 @@ export default function AdminPage() {
     }
   };
 
-  // Login handler for demo purposes
-  const handleLogin = () => {
-    const password = prompt('Enter admin password:');
-    if (password === process.env.NEXT_PUBLIC_ADMIN_PASSWORD) {
-      localStorage.setItem('adminToken', process.env.NEXT_PUBLIC_ADMIN_TOKEN || 'demo-token');
-      setIsAuthorized(true);
-    } else {
-      alert('Invalid password');
-    }
-  };
+  if (status === 'loading') {
+    return (
+      <div className="p-8 max-w-lg mx-auto text-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
-  const handleLogout = () => {
-    localStorage.removeItem('adminToken');
-    setIsAuthorized(false);
-  };
-
-  if (!isAuthorized) {
+  if (!session) {
     return (
       <div className="p-8 max-w-lg mx-auto text-center">
         <h1 className="text-2xl font-bold mb-4">Admin Login Required</h1>
-        <p className="mb-4">You need to be an admin to access this page.</p>
-        <button
-          onClick={handleLogin}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-        >
-          Login as Admin
-        </button>
+        <p className="mb-4">Please sign in with your Google account to access admin features.</p>
+        <div className="flex justify-center">
+          <GoogleLogin
+            onSuccess={(credentialResponse) => {
+              signIn('google', { 
+                callbackUrl: window.location.href,
+                redirect: true
+              });
+            }}
+            onError={() => {
+              console.log('Login Failed');
+            }}
+          />
+        </div>
       </div>
     );
   }
@@ -98,9 +81,12 @@ export default function AdminPage() {
   return (
     <div className="p-8 max-w-lg mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Slug Generator (Admin)</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Slug Generator (Admin)</h1>
+          <p className="text-sm text-gray-600">Logged in as: {session.user?.email}</p>
+        </div>
         <button
-          onClick={handleLogout}
+          onClick={() => signOut()}
           className="text-sm text-red-500 hover:underline"
         >
           Logout
