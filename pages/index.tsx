@@ -6,6 +6,7 @@ import {
 } from "react-icons/fa";
 import { EnvelopeIcon } from "@heroicons/react/24/outline";
 import { QRCodeCanvas } from "qrcode.react";
+import { useSession } from "next-auth/react";
 
 interface UserProfileData {
   username?: string;
@@ -36,6 +37,22 @@ interface HomeProps {
 
 export default function Home({ initialData, initialEditMode = true }: HomeProps) {
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+  const { data: session } = useSession();
+
+  // Add error handling utility
+  const handleApiError = (error: any) => {
+    if (axios.isAxiosError(error)) {
+      if (error.response?.status === 401) {
+        // Handle unauthorized access
+        return "Please log in to continue";
+      } else if (error.response?.status === 404) {
+        return "Resource not found";
+      } else if (error.response?.data?.message) {
+        return error.response.data.message;
+      }
+    }
+    return "An unexpected error occurred";
+  };
 
   // Client-only state defaults (avoid localStorage access during SSR)
   const [darkMode, setDarkMode] = useState(false);
@@ -184,23 +201,27 @@ export default function Home({ initialData, initialEditMode = true }: HomeProps)
       }
       // On save, generate a username if it's not already set.
       const finalUsername = user.username || generateUsername(user.name || "");
-      const res = await fetch(`${API_BASE_URL}/api/profile`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...user,
-          username: finalUsername,
-          deviceId: deviceId,
-        }),
+      const response = await axios.post(`${API_BASE_URL}/api/profile`, {
+        ...user,
+        username: finalUsername,
+        deviceId: deviceId,
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': session?.user?.email ? `Bearer ${session.user.email}` : undefined
+        }
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to save profile");
-      // Update the user state with the final username if generated.
-      setUser((prev) => ({ ...prev, username: finalUsername }));
-      alert("Profile saved successfully!");
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Unknown error occurred";
-      alert("Error saving profile: " + errorMessage);
+      
+      if (response.data) {
+        // Update the user state with the final username if generated.
+        setUser((prev) => ({ ...prev, username: finalUsername }));
+        setEditMode(false);
+        // Show success message
+        alert('Profile saved successfully!');
+      }
+    } catch (error) {
+      const errorMessage = handleApiError(error);
+      alert(errorMessage);
     }
   };
 
@@ -269,28 +290,25 @@ END:VCARD`.trim();
     }
     try {
       setAppointmentRequestSent(true);
-      const res = await fetch(`${API_BASE_URL}/api/appointments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...appointment,
-          username: user.username,
-          profileName: user.name
-        }),
+      const response = await axios.post(`${API_BASE_URL}/api/appointments`, {
+        ...appointment,
+        username: user.username,
+        profileName: user.name
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
-      if (!res.ok) {
-        const data = await res.json();
-        setAppointmentError(data.message || "Failed to create appointment.");
+      
+      if (response.data) {
+        setAppointmentConfirmed({ ...appointment });
+        setAppointment({ name: "", email: "", date: "", time: "" });
         setAppointmentRequestSent(false);
-        return;
+        alert("Appointment request sent!");
       }
-      setAppointmentConfirmed({ ...appointment });
-      setAppointment({ name: "", email: "", date: "", time: "" });
-      setAppointmentRequestSent(false);
-      alert("Appointment request sent!");
     } catch (error) {
-      console.error("Appointment submission error:", error);
-      setAppointmentError("An error occurred. Please try again.");
+      const errorMessage = handleApiError(error);
+      setAppointmentError(errorMessage);
       setAppointmentRequestSent(false);
     }
   };

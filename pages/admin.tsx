@@ -4,8 +4,16 @@ import { useRouter } from 'next/router';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { GoogleLogin } from '@react-oauth/google';
 
+interface SlugData {
+  slug: string;
+  createdAt: string;
+  lastAccessed: string;
+  accessCount: number;
+}
+
 export default function AdminPage() {
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+  const [slugs, setSlugs] = useState<SlugData[]>([]);
   const [generatedSlug, setGeneratedSlug] = useState<string>('');
   const [generatedLink, setGeneratedLink] = useState<string>('');
   const [error, setError] = useState<string>('');
@@ -13,128 +21,193 @@ export default function AdminPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
 
-  // Improved error handling and link sanitization
+  useEffect(() => {
+    if (status === 'authenticated') {
+      fetchSlugs();
+    }
+  }, [status]);
+
+  const fetchSlugs = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/slugs`, {
+        headers: {
+          'Authorization': session?.user?.email ? `Bearer ${session.user.email}` : undefined
+        }
+      });
+      setSlugs(response.data);
+    } catch (error) {
+      console.error('Error fetching slugs:', error);
+      setError('Failed to fetch slugs. Please try again.');
+    }
+  };
+
   const generateSlug = async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await axios.post(`${API_BASE_URL}/api/slugs`, null, {
+      const response = await axios.post(`${API_BASE_URL}/api/slugs`, null, {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.user?.email}`
+          'Authorization': session?.user?.email ? `Bearer ${session.user.email}` : undefined
         }
       });
       
-      if (res.data && res.data.slug) {
-        setGeneratedSlug(res.data.slug);
-        
-        // Ensure the link is properly constructed and sanitized
+      if (response.data && response.data.slug) {
+        setGeneratedSlug(response.data.slug);
         const baseUrl = window.location.origin;
-        const sanitizedSlug = encodeURIComponent(res.data.slug);
+        const sanitizedSlug = encodeURIComponent(response.data.slug);
         const fullLink = `${baseUrl}/p/${sanitizedSlug}`;
-        
         setGeneratedLink(fullLink);
-      } else {
-        throw new Error('Invalid response format from server');
+        // Refresh the slugs list
+        fetchSlugs();
       }
-    } catch (err: any) {
-      const errorMessage = err.response?.status === 409
-        ? 'Slug collision – please try again.'
-        : (err.response?.data?.message || err.message || 'Error generating slug.');
-      setError(errorMessage);
-      console.error(err);
+    } catch (error: any) {
+      setError(error.response?.data?.message || 'Error generating slug');
     } finally {
       setLoading(false);
     }
   };
 
+  const deleteSlug = async (slug: string) => {
+    if (!confirm(`Are you sure you want to delete the slug "${slug}"?`)) {
+      return;
+    }
+    
+    try {
+      await axios.delete(`${API_BASE_URL}/api/slugs/${slug}`, {
+        headers: {
+          'Authorization': session?.user?.email ? `Bearer ${session.user.email}` : undefined
+        }
+      });
+      // Refresh the slugs list
+      fetchSlugs();
+    } catch (error: any) {
+      setError(error.response?.data?.message || 'Error deleting slug');
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        alert('Link copied to clipboard!');
+      })
+      .catch(err => {
+        console.error('Failed to copy: ', err);
+        setError('Failed to copy to clipboard');
+      });
+  };
+
   if (status === 'loading') {
-    return (
-      <div className="p-8 max-w-lg mx-auto text-center">
-        <p>Loading...</p>
-      </div>
-    );
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
-  if (!session) {
+  if (status === 'unauthenticated') {
     return (
-      <div className="p-8 max-w-lg mx-auto text-center">
-        <h1 className="text-2xl font-bold mb-4">Admin Login Required</h1>
-        <p className="mb-4">Please sign in with your Google account to access admin features.</p>
-        <div className="flex justify-center">
-          <GoogleLogin
-            onSuccess={(credentialResponse) => {
-              signIn('google', { 
-                callbackUrl: window.location.href,
-                redirect: true
-              });
-            }}
-            onError={() => {
-              console.log('Login Failed');
-            }}
-          />
-        </div>
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <h1 className="text-2xl mb-4">Admin Dashboard</h1>
+        <p className="mb-4">Please sign in to access the admin features</p>
+        <GoogleLogin
+          onSuccess={(response) => {
+            signIn('google', { 
+              callbackUrl: window.location.href,
+              redirect: true
+            });
+          }}
+          onError={() => {
+            setError('Login failed');
+          }}
+        />
       </div>
     );
   }
 
   return (
-    <div className="p-8 max-w-lg mx-auto">
-      <div className="flex justify-between items-center mb-6">
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-2xl font-bold">Slug Generator (Admin)</h1>
+          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
           <p className="text-sm text-gray-600">Logged in as: {session.user?.email}</p>
         </div>
         <button
           onClick={() => signOut()}
-          className="text-sm text-red-500 hover:underline"
+          className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
         >
-          Logout
+          Sign Out
         </button>
       </div>
-      
-      <button
-        onClick={generateSlug}
-        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-blue-300"
-        disabled={loading}
-      >
-        {loading ? 'Generating...' : 'Generate New Link'}
-      </button>
-      
-      {generatedSlug && (
-        <div className="mt-4 bg-gray-100 p-4 rounded shadow">
-          <p className="text-sm">Generated Slug:</p>
-          <p className="font-mono text-lg text-blue-700">{generatedSlug}</p>
-          <p className="mt-2 text-sm">Embed this link in the NFC card:</p>
-          <a
-            href={generatedLink}
-            className="text-blue-600 underline break-all"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {generatedLink}
-          </a>
-          <div className="mt-4 flex gap-2">
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(generatedLink);
-                alert('Link copied to clipboard!');
-              }}
-              className="bg-gray-200 text-gray-800 text-sm px-3 py-1 rounded hover:bg-gray-300"
+
+      <div className="mb-8">
+        <button
+          onClick={generateSlug}
+          disabled={loading}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50"
+        >
+          {loading ? 'Generating...' : 'Generate New Slug'}
+        </button>
+      </div>
+
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
+        </div>
+      )}
+
+      {generatedLink && (
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+          <p className="font-bold">Generated Link:</p>
+          <div className="flex items-center mt-2">
+            <a href={generatedLink} className="underline break-all" target="_blank" rel="noopener noreferrer">
+              {generatedLink}
+            </a>
+            <button 
+              onClick={() => copyToClipboard(generatedLink)}
+              className="ml-2 bg-green-200 text-green-800 px-2 py-1 rounded text-sm"
             >
-              Copy Link
-            </button>
-            <button
-              onClick={() => router.push(generatedLink)}
-              className="bg-green-100 text-green-800 text-sm px-3 py-1 rounded hover:bg-green-200"
-            >
-              View Page
+              Copy
             </button>
           </div>
         </div>
       )}
-      
-      {error && <p className="text-red-500 mt-4">{error}</p>}
+
+      <div className="bg-white shadow-md rounded-lg overflow-hidden">
+        <table className="min-w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Slug</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Accessed</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Access Count</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {slugs.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                  No slugs found. Generate a new slug to get started.
+                </td>
+              </tr>
+            ) : (
+              slugs.map((slug) => (
+                <tr key={slug.slug}>
+                  <td className="px-6 py-4 whitespace-nowrap">{slug.slug}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{new Date(slug.createdAt).toLocaleDateString()}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{new Date(slug.lastAccessed).toLocaleDateString()}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">{slug.accessCount}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <button
+                      onClick={() => deleteSlug(slug.slug)}
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

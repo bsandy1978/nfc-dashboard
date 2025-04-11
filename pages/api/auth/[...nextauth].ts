@@ -15,12 +15,14 @@ export default NextAuth({
       }
       return token;
     },
-    async session({ session, token }) {
+    async session({ session, token }: { session: any, token: any }) {
       session.accessToken = token.accessToken;
       return session;
     },
   },
   pages: {
     signIn: '/admin',
+    error: '/admin', // Error code passed in query string as ?error=
   },
+  secret: process.env.NEXTAUTH_SECRET,
 }); 

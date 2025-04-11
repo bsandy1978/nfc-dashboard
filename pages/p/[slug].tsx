@@ -18,6 +18,7 @@ import {
   FaSpinner,
 } from "react-icons/fa";
 import { EnvelopeIcon } from '@heroicons/react/24/outline';
+import { useSession } from 'next-auth/react';
 
 interface UserProfile {
   slug: string;
@@ -39,343 +40,452 @@ export default function ProfilePage() {
   const router = useRouter();
   const { slug } = router.query;
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+  const { data: session } = useSession();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [deviceId, setDeviceId] = useState<string>("");
 
   // Add a fallback for crypto.randomUUID and handle localStorage errors
   useEffect(() => {
-    if (!slug || typeof slug !== 'string') return;
+    if (typeof window !== "undefined") {
+      try {
+        const storedDeviceId = localStorage.getItem("deviceId");
+        if (storedDeviceId) {
+          setDeviceId(storedDeviceId);
+        } else {
+          const newId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+          localStorage.setItem("deviceId", newId);
+          setDeviceId(newId);
+        }
+      } catch (storageError) {
+        console.error("Error accessing localStorage:", storageError);
+        setDeviceId(`${Date.now()}-${Math.random()}`);
+      }
+    }
+  }, []);
+
+  // Fetch profile data when slug is available
+  useEffect(() => {
+    if (!slug) return;
 
     const fetchProfile = async () => {
+      setLoading(true);
+      setErrorMessage("");
       try {
-        const url = `${API_BASE_URL}/api/profile/slug/${slug}`;
-        console.log("Fetching profile from:", url);
-        const res = await axios.get(url);
-        const profileData = res.data;
-        setProfile(profileData);
-
-        let deviceId;
-        try {
-          deviceId = localStorage.getItem("deviceId");
-          if (!deviceId) {
-            deviceId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
-            localStorage.setItem("deviceId", deviceId);
+        const response = await axios.get(`${API_BASE_URL}/api/profiles/${slug}`);
+        if (response.data) {
+          setProfile(response.data);
+          
+          // Check if the current user is the owner
+          if (deviceId && response.data.ownerDeviceId === deviceId) {
+            setIsOwner(true);
           }
-        } catch (storageError) {
-          console.error("Error accessing localStorage:", storageError);
-          deviceId = `${Date.now()}-${Math.random()}`;
         }
-
-        if (!profileData.ownerDeviceId) {
-          await axios.post(`${API_BASE_URL}/api/profile/slug/${slug}/claim`, { deviceId });
-          profileData.ownerDeviceId = deviceId;
+      } catch (error: any) {
+        console.error("Error fetching profile:", error);
+        if (error.response?.status === 404) {
+          setErrorMessage("Profile not found. It may have been deleted or the link is incorrect.");
+        } else {
+          setErrorMessage("Failed to load profile. Please try again later.");
         }
-
-        setIsOwner(profileData.ownerDeviceId === deviceId);
-      } catch (err) {
-        console.error("Profile fetch error:", err);
-        setErrorMessage(err instanceof Error ? err.message : "Error fetching profile. Please try again later.");
       } finally {
         setLoading(false);
       }
     };
 
     fetchProfile();
-  }, [slug, API_BASE_URL]);
+  }, [slug, deviceId, API_BASE_URL]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!profile) return;
+    
     const { name, value } = e.target;
-    setProfile({ ...profile, [name]: value });
+    setProfile({
+      ...profile,
+      [name]: value
+    });
   };
 
   const handleSave = async () => {
-    if (!profile || !slug) return;
+    if (!profile || !isOwner) return;
+    
+    setLoading(true);
+    setErrorMessage("");
+    
     try {
-      const deviceId = localStorage.getItem("deviceId") || "";
-      const url = `${API_BASE_URL}/api/profile/slug/${slug}`;
-      console.log("Saving profile to:", url);
-      const res = await axios.post(url, {
-        ...profile,
-        deviceId,
+      const response = await axios.put(`${API_BASE_URL}/api/profiles/${slug}`, profile, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': session?.user?.email ? `Bearer ${session.user.email}` : undefined
+        }
       });
-      alert("Profile updated!");
-      setProfile(res.data);
-    } catch (err: any) {
-      alert("Error saving profile: " + err.message);
+      
+      if (response.data) {
+        setProfile(response.data);
+        setEditMode(false);
+        alert("Profile updated successfully!");
+      }
+    } catch (error: any) {
+      console.error("Error updating profile:", error);
+      setErrorMessage(error.response?.data?.message || "Failed to update profile. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (loading) return <div className="p-6">Loading...</div>;
-  if (errorMessage) return <div className="p-6 text-red-500">{errorMessage}</div>;
-  if (!profile) return <div className="p-6">Profile not found.</div>;
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!profile || !isOwner) return;
+    
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setIsAvatarUploading(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+      
+      const response = await axios.post(`${API_BASE_URL}/api/profiles/${slug}/avatar`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          'Authorization': session?.user?.email ? `Bearer ${session.user.email}` : undefined
+        }
+      });
+      
+      if (response.data && response.data.avatar) {
+        setProfile({
+          ...profile,
+          avatar: response.data.avatar
+        });
+      }
+    } catch (error: any) {
+      console.error("Error uploading avatar:", error);
+      setErrorMessage(error.response?.data?.message || "Failed to upload avatar. Please try again.");
+    } finally {
+      setIsAvatarUploading(false);
+    }
+  };
 
-  const fields: (keyof UserProfile)[] = [
-    "name",
-    "title",
-    "subtitle",
-    "email",
-    "linkedin",
-    "instagram",
-    "twitter",
-    "website",
-    "location",
-    "upi",
-  ];
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <FaSpinner className="animate-spin text-4xl mx-auto mb-4" />
+          <p>Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (errorMessage) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center max-w-md p-6 bg-red-50 rounded-lg">
+          <h2 className="text-xl font-bold text-red-700 mb-2">Error</h2>
+          <p className="text-red-600">{errorMessage}</p>
+          <button 
+            onClick={() => router.push('/')}
+            className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          >
+            Go to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-xl font-bold mb-2">Profile Not Found</h2>
+          <p>The profile you're looking for doesn't exist or has been removed.</p>
+          <button 
+            onClick={() => router.push('/')}
+            className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          >
+            Go to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-gray-100 to-blue-100 dark:from-gray-900 dark:to-gray-800 transition-colors text-gray-800 dark:text-gray-100">
-      <div className="max-w-md mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-4">{isOwner ? "Edit" : "View"} Profile</h1>
-
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-4 ring-1 ring-blue-100 dark:ring-blue-900">
-          <div className="flex flex-col items-center space-y-2">
+    <div className="min-h-screen bg-gray-100 py-8">
+      <div className="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden">
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-2xl font-bold">{profile.name || "Profile"}</h1>
+            {isOwner && (
+              <button
+                onClick={() => setEditMode(!editMode)}
+                className="text-blue-500 hover:text-blue-700"
+              >
+                {editMode ? "Cancel" : "Edit"}
+              </button>
+            )}
+          </div>
+          
+          <div className="flex flex-col items-center mb-6">
             <div className="relative">
               <img
-                src={profile.avatar || "https://i.pravatar.cc/150?img=65"}
-                alt="Avatar"
-                className={`w-28 h-28 rounded-full border-4 border-white dark:border-gray-700 shadow-xl cursor-pointer hover:scale-105 transition duration-300 ${isAvatarUploading ? "opacity-50" : ""}`}
-                onClick={() =>
-                  isOwner && document.getElementById("fileInput")?.click()
-                }
+                src={profile.avatar || "https://via.placeholder.com/150"}
+                alt="Profile"
+                className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg"
               />
-              {isAvatarUploading && <FaSpinner className="absolute inset-0 m-auto text-3xl animate-spin" />}
-            </div>
-            <input
-              type="file"
-              id="fileInput"
-              className="hidden"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  setIsAvatarUploading(true);
-                  const reader = new FileReader();
-                  reader.onloadend = () => {
-                    setProfile({ ...profile, avatar: reader.result as string });
-                    setIsAvatarUploading(false);
-                  };
-                  reader.readAsDataURL(file);
-                }
-              }}
-            />
-
-            {isOwner ? (
-              <>
-                <input
-                  name="name"
-                  value={profile.name || ""}
-                  onChange={handleChange}
-                  className="text-lg font-semibold text-center bg-transparent border-b dark:text-white"
-                />
-                <input
-                  name="title"
-                  value={profile.title || ""}
-                  onChange={handleChange}
-                  className="text-sm text-center bg-transparent border-b dark:text-gray-300"
-                />
-                <input
-                  name="subtitle"
-                  value={profile.subtitle || ""}
-                  onChange={handleChange}
-                  className="text-xs text-center bg-transparent border-b dark:text-gray-400"
-                />
-              </>
-            ) : (
-              <>
-                <h1 className="text-xl font-bold text-center dark:text-white">{profile.name}</h1>
-                <p className="text-sm text-center dark:text-gray-300">{profile.title}</p>
-                <p className="text-xs text-center dark:text-gray-400">{profile.subtitle}</p>
-              </>
-            )}
-
-            <div className="flex w-full gap-2 mt-3">
-              {isOwner && (
-                <button
-                  onClick={handleSave}
-                  className="flex-1 text-sm bg-gradient-to-r from-blue-500 to-indigo-500 text-white py-2 rounded-md flex justify-center items-center gap-1"
-                >
-                  <FaEdit className="text-lg" /> Edit/Save Profile
-                </button>
+              {isOwner && editMode && (
+                <label className="absolute bottom-0 right-0 bg-blue-500 text-white p-2 rounded-full cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarUpload}
+                    className="hidden"
+                  />
+                  {isAvatarUploading ? <FaSpinner className="animate-spin" /> : "Change"}
+                </label>
               )}
-              <button
-                onClick={() => {
-                  const vcf = `BEGIN:VCARD
-VERSION:3.0
-FN:${profile.name}
-TITLE:${profile.title}
-EMAIL:${profile.email}
-URL:${profile.website}
-END:VCARD`.trim();
-                  const blob = new Blob([vcf], { type: "text/vcard" });
-                  const link = document.createElement("a");
-                  link.href = URL.createObjectURL(blob);
-                  link.download = `${profile.name?.replace(/ /g, "_")}.vcf`;
-                  link.click();
-                }}
-                className="flex-1 border border-blue-500 text-blue-500 px-3 py-2 rounded-md flex items-center justify-center"
-              >
-                <FaDownload />
-              </button>
-              <button
-                onClick={() => {
-                  const shareData = {
-                    title: "My Virtual Card",
-                    text: `Check out ${profile.name}'s virtual card!`,
-                    url: window.location.href,
-                  };
-                  if (navigator.share) {
-                    navigator.share(shareData).catch(() =>
-                      alert("Sharing failed!")
-                    );
-                  } else {
-                    navigator.clipboard.writeText(window.location.href);
-                    alert("Link copied to clipboard!");
-                  }
-                }}
-                className="flex-1 border border-green-500 text-green-500 px-3 py-2 rounded-md flex items-center justify-center"
-              >
-                <FaShareAlt />
-              </button>
             </div>
-
-            <div className="mt-4">
-              <p className="text-sm font-semibold dark:text-white mb-2">Scan to download vCard</p>
-              <QRCodeCanvas
-                value={`BEGIN:VCARD\nVERSION:3.0\nFN:${encodeURIComponent(profile.name || "")}\nTITLE:${encodeURIComponent(profile.title || "")}\nEMAIL:${encodeURIComponent(profile.email || "")}\nURL:${encodeURIComponent(profile.website || "")}\nEND:VCARD`}
-                size={128}
-              />
-            </div>
-          </div>
-
-          <div className="mt-6 divide-y divide-gray-200 dark:divide-gray-700">
-            {fields.map((field) => {
-              let icon;
-              let linkPrefix = "";
-              
-              switch (field) {
-                case "email":
-                  icon = <EnvelopeIcon className="w-6 h-6 text-blue-500" />;
-                  linkPrefix = "mailto:";
-                  break;
-                case "linkedin":
-                  icon = <FaLinkedin className="text-2xl text-blue-700" />;
-                  linkPrefix = "https://linkedin.com/in/";
-                  break;
-                case "instagram":
-                  icon = <FaInstagram className="text-2xl text-pink-600" />;
-                  linkPrefix = "https://instagram.com/";
-                  if (profile.instagram?.startsWith("@")) {
-                    profile.instagram = profile.instagram.substring(1);
-                  }
-                  break;
-                case "twitter":
-                  icon = <FaTwitter className="text-2xl text-sky-400" />;
-                  linkPrefix = "https://twitter.com/";
-                  if (profile.twitter?.startsWith("@")) {
-                    profile.twitter = profile.twitter.substring(1);
-                  }
-                  break;
-                case "website":
-                  icon = <FaGlobe className="text-2xl text-gray-500" />;
-                  linkPrefix = profile.website?.startsWith('http') ? "" : "https://";
-                  break;
-                case "location":
-                  icon = <FaMapMarkerAlt className="text-2xl text-red-500" />;
-                  linkPrefix = "https://maps.google.com/?q=";
-                  break;
-                case "upi":
-                  icon = <FaMoneyBill className="text-2xl text-green-500" />;
-                  linkPrefix = "upi://pay?pa=";
-                  break;
-                default:
-                  icon = null;
-              }
-              
-              if (!icon || ["name", "title", "subtitle"].includes(field)) return null;
-              
-              return (
-                <div key={field} className="flex items-center gap-3 py-3 group hover:bg-blue-50 dark:hover:bg-gray-700 transition px-3">
-                  <div className="text-2xl w-10 h-10 flex justify-center items-center rounded-full bg-white dark:bg-gray-800 shadow-md">
-                    {icon}
-                  </div>
-                  <div className="flex-1">
-                    <label className="text-sm font-semibold mb-1 block" htmlFor={field}>
-                      {field.charAt(0).toUpperCase() + field.slice(1)}
-                    </label>
-                    {isOwner ? (
-                      <input
-                        id={field}
-                        name={field}
-                        className="text-xs bg-transparent border-b w-full focus:outline-none dark:text-white"
-                        value={profile[field] || ""}
-                        onChange={handleChange}
-                      />
-                    ) : (
-                      profile[field] && (
-                        <a
-                          href={`${linkPrefix}${profile[field]}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-blue-500 hover:underline break-all mt-1 block"
-                        >
-                          {profile[field]}
-                        </a>
-                      )
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-6 border-t pt-4">
-            <h3 className="text-md font-semibold mb-2 dark:text-white">Schedule a Call</h3>
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                alert("Appointment functionality not implemented in this demo.");
-              }}
-              className="space-y-3"
-            >
+            
+            {editMode ? (
               <input
                 type="text"
+                name="name"
+                value={profile.name || ""}
+                onChange={handleChange}
                 placeholder="Your Name"
-                className="w-full text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:border-gray-700"
-                required
+                className="mt-4 w-full p-2 border rounded"
               />
+            ) : (
+              <h2 className="mt-4 text-xl font-semibold">{profile.name}</h2>
+            )}
+            
+            {editMode ? (
               <input
-                type="email"
-                placeholder="Your Email"
-                className="w-full text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400 dark:border-gray-700"
-                required
+                type="text"
+                name="title"
+                value={profile.title || ""}
+                onChange={handleChange}
+                placeholder="Your Title"
+                className="mt-2 w-full p-2 border rounded"
               />
-              <div className="flex gap-2">
-                <input
-                  type="date"
-                  className="w-1/2 text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
-                  required
-                />
-                <input
-                  type="time"
-                  className="w-1/2 text-sm p-2 border rounded-md dark:bg-gray-800 dark:text-gray-100 dark:border-gray-700"
-                  required
-                />
+            ) : (
+              <p className="text-gray-600">{profile.title}</p>
+            )}
+            
+            {editMode ? (
+              <input
+                type="text"
+                name="subtitle"
+                value={profile.subtitle || ""}
+                onChange={handleChange}
+                placeholder="Your Subtitle"
+                className="mt-2 w-full p-2 border rounded"
+              />
+            ) : (
+              <p className="text-sm text-gray-500">{profile.subtitle}</p>
+            )}
+          </div>
+          
+          <div className="space-y-4">
+            {profile.email && (
+              <div className="flex items-center">
+                <EnvelopeIcon className="h-5 w-5 text-gray-500 mr-2" />
+                {editMode ? (
+                  <input
+                    type="email"
+                    name="email"
+                    value={profile.email}
+                    onChange={handleChange}
+                    className="flex-1 p-2 border rounded"
+                  />
+                ) : (
+                  <a href={`mailto:${profile.email}`} className="text-blue-500 hover:underline">
+                    {profile.email}
+                  </a>
+                )}
               </div>
+            )}
+            
+            {profile.instagram && (
+              <div className="flex items-center">
+                <FaInstagram className="h-5 w-5 text-pink-500 mr-2" />
+                {editMode ? (
+                  <input
+                    type="text"
+                    name="instagram"
+                    value={profile.instagram}
+                    onChange={handleChange}
+                    className="flex-1 p-2 border rounded"
+                  />
+                ) : (
+                  <a href={`https://instagram.com/${profile.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                    {profile.instagram}
+                  </a>
+                )}
+              </div>
+            )}
+            
+            {profile.linkedin && (
+              <div className="flex items-center">
+                <FaLinkedin className="h-5 w-5 text-blue-700 mr-2" />
+                {editMode ? (
+                  <input
+                    type="text"
+                    name="linkedin"
+                    value={profile.linkedin}
+                    onChange={handleChange}
+                    className="flex-1 p-2 border rounded"
+                  />
+                ) : (
+                  <a href={`https://linkedin.com/in/${profile.linkedin}`} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                    {profile.linkedin}
+                  </a>
+                )}
+              </div>
+            )}
+            
+            {profile.twitter && (
+              <div className="flex items-center">
+                <FaTwitter className="h-5 w-5 text-blue-400 mr-2" />
+                {editMode ? (
+                  <input
+                    type="text"
+                    name="twitter"
+                    value={profile.twitter}
+                    onChange={handleChange}
+                    className="flex-1 p-2 border rounded"
+                  />
+                ) : (
+                  <a href={`https://twitter.com/${profile.twitter.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                    {profile.twitter}
+                  </a>
+                )}
+              </div>
+            )}
+            
+            {profile.website && (
+              <div className="flex items-center">
+                <FaGlobe className="h-5 w-5 text-gray-500 mr-2" />
+                {editMode ? (
+                  <input
+                    type="text"
+                    name="website"
+                    value={profile.website}
+                    onChange={handleChange}
+                    className="flex-1 p-2 border rounded"
+                  />
+                ) : (
+                  <a href={profile.website.startsWith('http') ? profile.website : `https://${profile.website}`} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                    {profile.website}
+                  </a>
+                )}
+              </div>
+            )}
+            
+            {profile.location && (
+              <div className="flex items-center">
+                <FaMapMarkerAlt className="h-5 w-5 text-red-500 mr-2" />
+                {editMode ? (
+                  <input
+                    type="text"
+                    name="location"
+                    value={profile.location}
+                    onChange={handleChange}
+                    className="flex-1 p-2 border rounded"
+                  />
+                ) : (
+                  <a href={`https://maps.google.com/?q=${encodeURIComponent(profile.location)}`} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                    {profile.location}
+                  </a>
+                )}
+              </div>
+            )}
+            
+            {profile.upi && (
+              <div className="flex items-center">
+                <FaMoneyBill className="h-5 w-5 text-green-500 mr-2" />
+                {editMode ? (
+                  <input
+                    type="text"
+                    name="upi"
+                    value={profile.upi}
+                    onChange={handleChange}
+                    className="flex-1 p-2 border rounded"
+                  />
+                ) : (
+                  <a href={`upi://pay?pa=${profile.upi}`} className="text-blue-500 hover:underline">
+                    {profile.upi}
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+          
+          {editMode && (
+            <div className="mt-6">
               <button
-                type="submit"
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm py-2 rounded-md"
+                onClick={handleSave}
+                className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
               >
-                Book Appointment
+                Save Changes
               </button>
-            </form>
+            </div>
+          )}
+          
+          <div className="mt-6 flex justify-between">
+            <button
+              onClick={() => {
+                const vcf = `BEGIN:VCARD
+VERSION:3.0
+FN:${profile.name || ""}
+TITLE:${profile.title || ""}
+EMAIL:${profile.email || ""}
+URL:${profile.website || ""}
+END:VCARD`.trim();
+                const blob = new Blob([vcf], { type: "text/vcard" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${profile.name || "contact"}.vcf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              }}
+              className="flex items-center text-blue-500 hover:text-blue-700"
+            >
+              <FaDownload className="mr-2" />
+              Download vCard
+            </button>
+            
+            <button
+              onClick={() => {
+                if (navigator.share) {
+                  navigator.share({
+                    title: profile.name,
+                    text: `Check out ${profile.name}'s profile!`,
+                    url: window.location.href
+                  });
+                } else {
+                  navigator.clipboard.writeText(window.location.href)
+                    .then(() => alert("Link copied to clipboard!"))
+                    .catch(err => console.error("Failed to copy: ", err));
+                }
+              }}
+              className="flex items-center text-green-500 hover:text-green-700"
+            >
+              <FaShareAlt className="mr-2" />
+              Share
+            </button>
           </div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }
