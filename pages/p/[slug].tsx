@@ -16,11 +16,14 @@ import {
   FaMoneyBill,
   FaShareAlt,
   FaSpinner,
+  FaLock,
+  FaUnlock,
 } from "react-icons/fa";
 import { EnvelopeIcon } from '@heroicons/react/24/outline';
-import { useSession } from 'next-auth/react';
+import { useSession, signIn } from 'next-auth/react';
 
 interface UserProfile {
+  id: string;
   slug: string;
   name?: string;
   title?: string;
@@ -33,14 +36,14 @@ interface UserProfile {
   website?: string;
   location?: string;
   upi?: string;
-  ownerDeviceId: string;
+  ownerEmail: string | null;
 }
 
 export default function ProfilePage() {
   const router = useRouter();
   const { slug } = router.query;
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isOwner, setIsOwner] = useState(false);
@@ -48,26 +51,7 @@ export default function ProfilePage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [deviceId, setDeviceId] = useState<string>("");
-
-  // Add a fallback for crypto.randomUUID and handle localStorage errors
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const storedDeviceId = localStorage.getItem("deviceId");
-        if (storedDeviceId) {
-          setDeviceId(storedDeviceId);
-        } else {
-          const newId = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
-          localStorage.setItem("deviceId", newId);
-          setDeviceId(newId);
-        }
-      } catch (storageError) {
-        console.error("Error accessing localStorage:", storageError);
-        setDeviceId(`${Date.now()}-${Math.random()}`);
-      }
-    }
-  }, []);
+  const [showQRCode, setShowQRCode] = useState(false);
 
   // Fetch profile data when slug is available
   useEffect(() => {
@@ -82,7 +66,7 @@ export default function ProfilePage() {
           setProfile(response.data);
           
           // Check if the current user is the owner
-          if (deviceId && response.data.ownerDeviceId === deviceId) {
+          if (session?.user?.email === response.data.ownerEmail) {
             setIsOwner(true);
           }
         }
@@ -99,7 +83,7 @@ export default function ProfilePage() {
     };
 
     fetchProfile();
-  }, [slug, deviceId, API_BASE_URL]);
+  }, [slug, session?.user?.email, API_BASE_URL]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!profile) return;
@@ -171,6 +155,33 @@ export default function ProfilePage() {
     }
   };
 
+  const handleClaimOwnership = async () => {
+    if (!session?.user?.email) {
+      signIn('google', { callbackUrl: window.location.href });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await axios.post(`${API_BASE_URL}/api/profiles/${slug}/claim`, null, {
+        headers: {
+          'Authorization': `Bearer ${session.user.email}`
+        }
+      });
+      
+      if (response.data) {
+        setProfile(response.data);
+        setIsOwner(true);
+        alert("Successfully claimed ownership of this profile!");
+      }
+    } catch (error: any) {
+      console.error("Error claiming ownership:", error);
+      setErrorMessage(error.response?.data?.message || "Failed to claim ownership. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -222,12 +233,28 @@ export default function ProfilePage() {
         <div className="p-6">
           <div className="flex justify-between items-center mb-4">
             <h1 className="text-2xl font-bold">{profile.name || "Profile"}</h1>
+            {!isOwner && !profile.ownerEmail && (
+              <button
+                onClick={handleClaimOwnership}
+                className="text-blue-500 hover:text-blue-700 flex items-center gap-2"
+              >
+                <FaLock /> Claim Ownership
+              </button>
+            )}
             {isOwner && (
               <button
                 onClick={() => setEditMode(!editMode)}
-                className="text-blue-500 hover:text-blue-700"
+                className="text-blue-500 hover:text-blue-700 flex items-center gap-2"
               >
-                {editMode ? "Cancel" : "Edit"}
+                {editMode ? (
+                  <>
+                    <FaUnlock /> Cancel
+                  </>
+                ) : (
+                  <>
+                    <FaEdit /> Edit
+                  </>
+                )}
               </button>
             )}
           </div>
@@ -241,11 +268,11 @@ export default function ProfilePage() {
               />
               {isOwner && editMode && (
                 <label className="absolute bottom-0 right-0 bg-blue-500 text-white p-2 rounded-full cursor-pointer">
-            <input
-              type="file"
+                  <input
+                    type="file"
                     accept="image/*"
                     onChange={handleAvatarUpload}
-              className="hidden"
+                    className="hidden"
                   />
                   {isAvatarUploading ? <FaSpinner className="animate-spin" /> : "Change"}
                 </label>
@@ -253,42 +280,44 @@ export default function ProfilePage() {
             </div>
             
             {editMode ? (
+              <>
                 <input
-                type="text"
+                  type="text"
                   name="name"
                   value={profile.name || ""}
                   onChange={handleChange}
-                placeholder="Your Name"
-                className="mt-4 w-full p-2 border rounded"
+                  placeholder="Your Name"
+                  className="mt-4 w-full p-2 border rounded"
                 />
-            ) : (
-              <h2 className="mt-4 text-xl font-semibold">{profile.name}</h2>
-            )}
-            
-            {editMode ? (
                 <input
-                type="text"
+                  type="text"
                   name="title"
                   value={profile.title || ""}
                   onChange={handleChange}
-                placeholder="Your Title"
-                className="mt-2 w-full p-2 border rounded"
+                  placeholder="Your Title"
+                  className="mt-2 w-full p-2 border rounded"
                 />
-            ) : (
-              <p className="text-gray-600">{profile.title}</p>
-            )}
-            
-            {editMode ? (
                 <input
-                type="text"
+                  type="text"
                   name="subtitle"
                   value={profile.subtitle || ""}
                   onChange={handleChange}
-                placeholder="Your Subtitle"
-                className="mt-2 w-full p-2 border rounded"
-              />
+                  placeholder="Your Subtitle"
+                  className="mt-2 w-full p-2 border rounded"
+                />
+                <button
+                  onClick={handleSave}
+                  className="mt-4 bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+                >
+                  Save Changes
+                </button>
+              </>
             ) : (
-              <p className="text-sm text-gray-500">{profile.subtitle}</p>
+              <>
+                <h2 className="mt-4 text-xl font-semibold">{profile.name}</h2>
+                <p className="text-gray-600">{profile.title}</p>
+                <p className="text-sm text-gray-500">{profile.subtitle}</p>
+              </>
             )}
           </div>
 
@@ -309,26 +338,26 @@ export default function ProfilePage() {
                     {profile.email}
                   </a>
                 )}
-                  </div>
+              </div>
             )}
             
             {profile.instagram && (
               <div className="flex items-center">
                 <FaInstagram className="h-5 w-5 text-pink-500 mr-2" />
                 {editMode ? (
-                      <input
+                  <input
                     type="text"
                     name="instagram"
                     value={profile.instagram}
-                        onChange={handleChange}
+                    onChange={handleChange}
                     className="flex-1 p-2 border rounded"
-                        />
-                    ) : (
+                  />
+                ) : (
                   <a href={`https://instagram.com/${profile.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
                     {profile.instagram}
-                      </a>
-                    )}
-                  </div>
+                  </a>
+                )}
+              </div>
             )}
             
             {profile.linkedin && (
@@ -347,15 +376,15 @@ export default function ProfilePage() {
                     {profile.linkedin}
                   </a>
                 )}
-                </div>
+              </div>
             )}
             
             {profile.twitter && (
               <div className="flex items-center">
-                <FaTwitter className="h-5 w-5 text-blue-400 mr-2" />
+                <FaTwitter className="h-5 w-5 text-sky-400 mr-2" />
                 {editMode ? (
-              <input
-                type="text"
+                  <input
+                    type="text"
                     name="twitter"
                     value={profile.twitter}
                     onChange={handleChange}
@@ -373,7 +402,7 @@ export default function ProfilePage() {
               <div className="flex items-center">
                 <FaGlobe className="h-5 w-5 text-gray-500 mr-2" />
                 {editMode ? (
-              <input
+                  <input
                     type="text"
                     name="website"
                     value={profile.website}
@@ -392,7 +421,7 @@ export default function ProfilePage() {
               <div className="flex items-center">
                 <FaMapMarkerAlt className="h-5 w-5 text-red-500 mr-2" />
                 {editMode ? (
-                <input
+                  <input
                     type="text"
                     name="location"
                     value={profile.location}
@@ -411,7 +440,7 @@ export default function ProfilePage() {
               <div className="flex items-center">
                 <FaMoneyBill className="h-5 w-5 text-green-500 mr-2" />
                 {editMode ? (
-                <input
+                  <input
                     type="text"
                     name="upi"
                     value={profile.upi}
@@ -426,64 +455,27 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
-          
-          {editMode && (
-            <div className="mt-6">
+
+          {isOwner && (
+            <div className="mt-6 pt-4 border-t">
               <button
-                onClick={handleSave}
-                className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
+                onClick={() => setShowQRCode(!showQRCode)}
+                className="text-blue-500 hover:text-blue-700"
               >
-                Save Changes
+                {showQRCode ? "Hide QR Code" : "Show QR Code"}
               </button>
+              
+              {showQRCode && (
+                <div className="mt-4 flex flex-col items-center">
+                  <QRCodeCanvas
+                    value={window.location.href}
+                    size={200}
+                  />
+                  <p className="mt-2 text-sm text-gray-500">Scan to view this profile</p>
+                </div>
+              )}
             </div>
           )}
-          
-          <div className="mt-6 flex justify-between">
-            <button
-              onClick={() => {
-                const vcf = `BEGIN:VCARD
-VERSION:3.0
-FN:${profile.name || ""}
-TITLE:${profile.title || ""}
-EMAIL:${profile.email || ""}
-URL:${profile.website || ""}
-END:VCARD`.trim();
-                const blob = new Blob([vcf], { type: "text/vcard" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `${profile.name || "contact"}.vcf`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-              }}
-              className="flex items-center text-blue-500 hover:text-blue-700"
-            >
-              <FaDownload className="mr-2" />
-              Download vCard
-            </button>
-            
-            <button
-              onClick={() => {
-                if (navigator.share) {
-                  navigator.share({
-                    title: profile.name,
-                    text: `Check out ${profile.name}'s profile!`,
-                    url: window.location.href
-                  });
-                } else {
-                  navigator.clipboard.writeText(window.location.href)
-                    .then(() => alert("Link copied to clipboard!"))
-                    .catch(err => console.error("Failed to copy: ", err));
-                }
-              }}
-              className="flex items-center text-green-500 hover:text-green-700"
-            >
-              <FaShareAlt className="mr-2" />
-              Share
-            </button>
-          </div>
         </div>
       </div>
     </div>
