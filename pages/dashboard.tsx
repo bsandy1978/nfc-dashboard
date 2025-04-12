@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
-import { FaEdit, FaSave, FaTrash, FaPlus } from 'react-icons/fa';
+import { FaEdit, FaSave, FaTrash, FaPlus, FaUserPlus } from 'react-icons/fa';
 
 interface DashboardData {
   id: string;
@@ -11,6 +11,8 @@ interface DashboardData {
   theme: string;
   createdAt: string;
   updatedAt: string;
+  claimedBy?: string;
+  claimedAt?: string;
 }
 
 export default function DashboardPage() {
@@ -23,6 +25,16 @@ export default function DashboardPage() {
   const [error, setError] = useState('');
   const [newDashboard, setNewDashboard] = useState({ name: '', description: '', theme: 'default' });
   const [isCreating, setIsCreating] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check if user is admin
+  useEffect(() => {
+    if (session?.user?.email) {
+      // Check if user email is in admin list
+      const adminEmails = process.env.NEXT_PUBLIC_ADMIN_EMAILS?.split(',') || [];
+      setIsAdmin(adminEmails.includes(session.user.email));
+    }
+  }, [session]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -99,6 +111,22 @@ export default function DashboardPage() {
     router.push(`/p/${id}`);
   };
 
+  const handleClaimDashboard = async (id: string) => {
+    try {
+      await axios.put(`${API_BASE_URL}/api/profiles/${id}/claim`, {}, {
+        headers: {
+          'Authorization': `Bearer ${session?.user?.email}`
+        }
+      });
+      
+      // Refresh dashboards after claiming
+      fetchDashboards();
+    } catch (err) {
+      console.error('Error claiming dashboard:', err);
+      setError('Failed to claim dashboard. Please try again.');
+    }
+  };
+
   if (status === 'loading') {
     return (
       <div className="flex justify-center items-center h-screen">
@@ -119,7 +147,20 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 py-8">
       <div className="max-w-6xl mx-auto px-4">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-white">My Dashboards</h1>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-white">My Dashboards</h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {isAdmin ? 'Admin Dashboard - Manage all dashboards' : 'User Dashboard - Claim and manage your profiles'}
+            </p>
+          </div>
+          {isAdmin && (
+            <button
+              onClick={() => router.push('/admin')}
+              className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 mr-2"
+            >
+              Admin Panel
+            </button>
+          )}
           <button
             onClick={() => setIsCreating(true)}
             className="bg-blue-600 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-blue-700"
@@ -230,20 +271,37 @@ export default function DashboardPage() {
                       >
                         View
                       </button>
-                      <button
-                        onClick={() => handleEditDashboard(dashboard.id)}
-                        className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300"
-                      >
-                        <FaEdit />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteDashboard(dashboard.id)}
-                        className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                      >
-                        <FaTrash />
-                      </button>
+                      {dashboard.claimedBy ? (
+                        <button
+                          onClick={() => handleEditDashboard(dashboard.id)}
+                          className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300"
+                        >
+                          <FaEdit />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleClaimDashboard(dashboard.id)}
+                          className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+                          title="Claim Dashboard"
+                        >
+                          <FaUserPlus />
+                        </button>
+                      )}
+                      {isAdmin && (
+                        <button
+                          onClick={() => handleDeleteDashboard(dashboard.id)}
+                          className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                        >
+                          <FaTrash />
+                        </button>
+                      )}
                     </div>
                   </div>
+                  {dashboard.claimedBy && (
+                    <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                      Claimed by: {dashboard.claimedBy}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

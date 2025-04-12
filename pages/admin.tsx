@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { GoogleLogin } from '@react-oauth/google';
-import { FaPlus, FaTrash, FaCopy, FaQrcode } from 'react-icons/fa';
+import { FaPlus, FaTrash, FaCopy, FaQrcode, FaUserShield } from 'react-icons/fa';
 
 interface DashboardData {
   id: string;
@@ -13,6 +13,8 @@ interface DashboardData {
   createdAt: string;
   ownerEmail: string | null;
   accessCount: number;
+  claimedBy?: string;
+  claimedAt?: string;
 }
 
 export default function AdminPage() {
@@ -22,17 +24,34 @@ export default function AdminPage() {
   const [error, setError] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const router = useRouter();
   const { data: session, status } = useSession();
 
+  // Check if user is admin
   useEffect(() => {
-    if (status === 'authenticated') {
+    if (session?.user?.email) {
+      // Check if user email is in admin list
+      const adminEmails = process.env.NEXT_PUBLIC_ADMIN_EMAILS?.split(',') || [];
+      const userIsAdmin = adminEmails.includes(session.user.email);
+      setIsAdmin(userIsAdmin);
+      
+      // If not admin, redirect to dashboard
+      if (!userIsAdmin && status === 'authenticated') {
+        router.push('/dashboard');
+      }
+    }
+  }, [session, status, router]);
+
+  useEffect(() => {
+    if (status === 'authenticated' && isAdmin) {
       fetchDashboards();
     }
-  }, [status]);
+  }, [status, isAdmin]);
 
   const fetchDashboards = async () => {
     try {
+      setLoading(true);
       const response = await axios.get(`${API_BASE_URL}/api/dashboards`, {
         headers: {
           'Authorization': session?.user?.email ? `Bearer ${session.user.email}` : undefined
@@ -42,6 +61,8 @@ export default function AdminPage() {
     } catch (error) {
       console.error('Error fetching dashboards:', error);
       setError('Failed to fetch dashboards. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -119,6 +140,21 @@ export default function AdminPage() {
     );
   }
 
+  if (!isAdmin) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <h1 className="text-2xl mb-4">Access Denied</h1>
+        <p className="mb-4">You do not have permission to access the admin dashboard.</p>
+        <button
+          onClick={() => router.push('/dashboard')}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        >
+          Go to Dashboard
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
@@ -126,12 +162,20 @@ export default function AdminPage() {
           <h1 className="text-2xl font-bold">Admin Dashboard</h1>
           <p className="text-sm text-gray-600">Logged in as: {session.user?.email}</p>
         </div>
-        <button
-          onClick={() => signOut()}
-          className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-        >
-          Sign Out
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          >
+            User Dashboard
+          </button>
+          <button
+            onClick={() => signOut()}
+            className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+          >
+            Sign Out
+          </button>
+        </div>
       </div>
 
       <div className="mb-8">
@@ -197,13 +241,14 @@ export default function AdminPage() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Access Count</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {dashboards.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
                   No dashboards found. Create a new dashboard to get started.
                 </td>
               </tr>
@@ -214,6 +259,17 @@ export default function AdminPage() {
                   <td className="px-6 py-4">{dashboard.description}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{dashboard.ownerEmail || 'Unclaimed'}</td>
                   <td className="px-6 py-4 whitespace-nowrap">{dashboard.accessCount}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {dashboard.claimedBy ? (
+                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                        Claimed
+                      </span>
+                    ) : (
+                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                        Available
+                      </span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap space-x-2">
                     <button
                       onClick={() => copyToClipboard(`${window.location.origin}/p/${dashboard.slug}`)}
