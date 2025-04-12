@@ -52,6 +52,7 @@ export default function ProfilePage() {
   const [isAvatarUploading, setIsAvatarUploading] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
+  const [needsLogin, setNeedsLogin] = useState(false);
 
   // Fetch profile data when slug is available
   useEffect(() => {
@@ -65,9 +66,15 @@ export default function ProfilePage() {
         if (response.data) {
           setProfile(response.data);
           
+          // If profile has no owner and user is not logged in, show login prompt
+          if (!response.data.ownerEmail && !session?.user?.email) {
+            setNeedsLogin(true);
+          }
+          
           // Check if the current user is the owner
           if (session?.user?.email === response.data.ownerEmail) {
             setIsOwner(true);
+            setEditMode(true); // Automatically enable edit mode for owner
           }
         }
       } catch (error: any) {
@@ -155,9 +162,12 @@ export default function ProfilePage() {
     }
   };
 
-  const handleClaimOwnership = async () => {
+  const handleInitialLogin = async () => {
     if (!session?.user?.email) {
-      signIn('google', { callbackUrl: window.location.href });
+      signIn('google', { 
+        callbackUrl: window.location.href,
+        redirect: true 
+      });
       return;
     }
 
@@ -172,11 +182,12 @@ export default function ProfilePage() {
       if (response.data) {
         setProfile(response.data);
         setIsOwner(true);
-        alert("Successfully claimed ownership of this profile!");
+        setEditMode(true);
+        setNeedsLogin(false);
       }
     } catch (error: any) {
-      console.error("Error claiming ownership:", error);
-      setErrorMessage(error.response?.data?.message || "Failed to claim ownership. Please try again.");
+      console.error("Error claiming profile:", error);
+      setErrorMessage(error.response?.data?.message || "Failed to claim profile. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -188,6 +199,23 @@ export default function ProfilePage() {
         <div className="text-center">
           <FaSpinner className="animate-spin text-4xl mx-auto mb-4" />
           <p>Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (needsLogin) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center max-w-md p-6 bg-white rounded-lg shadow-md">
+          <h2 className="text-xl font-bold mb-4">Claim Your Profile</h2>
+          <p className="mb-4">This profile is unclaimed. Sign in with Google to claim ownership and start editing.</p>
+          <button
+            onClick={handleInitialLogin}
+            className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600"
+          >
+            Sign in with Google
+          </button>
         </div>
       </div>
     );
@@ -235,7 +263,7 @@ export default function ProfilePage() {
             <h1 className="text-2xl font-bold">{profile.name || "Profile"}</h1>
             {!isOwner && !profile.ownerEmail && (
               <button
-                onClick={handleClaimOwnership}
+                onClick={handleInitialLogin}
                 className="text-blue-500 hover:text-blue-700 flex items-center gap-2"
               >
                 <FaLock /> Claim Ownership
