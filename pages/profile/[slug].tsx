@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
-import { FaEdit, FaSave, FaTimes } from 'react-icons/fa';
+import { FaEdit, FaSave, FaTimes, FaUserPlus } from 'react-icons/fa';
 
 interface ProfileData {
-  id: string;
+  _id: string;
   name: string;
   bio: string;
   location: string;
@@ -17,8 +17,8 @@ interface ProfileData {
     instagram?: string;
   };
   isPublic: boolean;
-  ownerEmail: string;
-  claimedAt: string;
+  isClaimed: boolean;
+  googleId: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -32,6 +32,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState<Partial<ProfileData>>({});
+  const [isOwner, setIsOwner] = useState(false);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -46,11 +47,18 @@ export default function ProfilePage() {
 
   const fetchProfile = async () => {
     try {
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/api/profiles/${slug}`);
-      setProfile(response.data);
-      setFormData(response.data);
+      const response = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/profiles/${slug}`, {
+        headers: {
+          Authorization: `Bearer ${session?.user?.accessToken}`
+        }
+      });
+      
+      setProfile(response.data.data);
+      setFormData(response.data.data);
+      setIsOwner(response.data.isOwner);
       setLoading(false);
     } catch (err) {
+      console.error('Error fetching profile:', err);
       setError('Failed to load profile');
       setLoading(false);
     }
@@ -71,39 +79,57 @@ export default function ProfilePage() {
   const handleSave = async () => {
     try {
       const response = await axios.put(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/profiles/${profile?.id}`,
-        formData
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/profiles/${profile?._id}`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${session?.user?.accessToken}`
+          }
+        }
       );
-      setProfile(response.data);
+      setProfile(response.data.data);
       setIsEditing(false);
     } catch (err) {
+      console.error('Error updating profile:', err);
       setError('Failed to update profile');
     }
   };
 
   const handleClaim = async () => {
     try {
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/profiles/${profile?.id}/claim`
+      const response = await axios.put(
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/profiles/${profile?._id}/claim`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${session?.user?.accessToken}`
+          }
+        }
       );
-      setProfile(response.data);
+      setProfile(response.data.data);
+      setIsOwner(true);
     } catch (err) {
+      console.error('Error claiming profile:', err);
       setError('Failed to claim profile');
     }
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error}</div>;
-  if (!profile) return <div>Profile not found</div>;
-
-  const isOwner = session?.user?.email === profile.ownerEmail;
+  if (loading) return <div className="flex justify-center items-center h-64">
+    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+  </div>;
+  
+  if (error) return <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+    Error: {error}
+  </div>;
+  
+  if (!profile) return <div className="text-center p-8">Profile not found</div>;
 
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="bg-white rounded-lg shadow-lg p-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">{profile.name}</h1>
-          {isOwner && (
+          {isOwner ? (
             <button
               onClick={() => setIsEditing(!isEditing)}
               className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
@@ -111,6 +137,10 @@ export default function ProfilePage() {
               {isEditing ? <FaTimes /> : <FaEdit />}
               {isEditing ? 'Cancel' : 'Edit'}
             </button>
+          ) : (
+            <div className="text-sm text-gray-500">
+              {profile.isClaimed ? 'This profile is claimed' : 'You can claim this profile'}
+            </div>
           )}
         </div>
 
@@ -158,7 +188,7 @@ export default function ProfilePage() {
             </div>
             <div className="space-y-2">
               <h3 className="text-lg font-medium">Social Links</h3>
-              {Object.entries(profile.social).map(([platform, url]) => (
+              {Object.entries(profile.social || {}).map(([platform, url]) => (
                 <div key={platform}>
                   <label className="block text-sm font-medium text-gray-700 capitalize">
                     {platform}
@@ -203,7 +233,7 @@ export default function ProfilePage() {
             <div className="space-y-2">
               <h3 className="text-lg font-medium">Social Links</h3>
               <div className="flex flex-wrap gap-4">
-                {Object.entries(profile.social).map(([platform, url]) => (
+                {Object.entries(profile.social || {}).map(([platform, url]) => (
                   url && (
                     <a
                       key={platform}
@@ -218,11 +248,12 @@ export default function ProfilePage() {
                 ))}
               </div>
             </div>
-            {!profile.ownerEmail && (
+            {!profile.isClaimed && !isOwner && (
               <button
                 onClick={handleClaim}
-                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
               >
+                <FaUserPlus />
                 Claim This Profile
               </button>
             )}
