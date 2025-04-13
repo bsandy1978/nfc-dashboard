@@ -5,14 +5,13 @@ import axios from 'axios';
 import { FaEdit, FaSave, FaTrash, FaPlus, FaUserPlus } from 'react-icons/fa';
 
 interface DashboardData {
-  id: string;
+  _id: string;
   name: string;
   description: string;
   theme: string;
   createdAt: string;
   updatedAt: string;
-  claimedBy?: string;
-  claimedAt?: string;
+  isPublic: boolean;
 }
 
 export default function DashboardPage() {
@@ -54,9 +53,7 @@ export default function DashboardPage() {
     try {
       setLoading(true);
       const response = await axios.get(`${API_BASE_URL}/api/dashboards`, {
-        headers: {
-          'Authorization': `Bearer ${session?.user?.email}`
-        }
+        withCredentials: true
       });
       setDashboards(response.data);
     } catch (err) {
@@ -71,10 +68,7 @@ export default function DashboardPage() {
     e.preventDefault();
     try {
       const response = await axios.post(`${API_BASE_URL}/api/dashboards`, newDashboard, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.user?.email}`
-        }
+        withCredentials: true
       });
       
       setDashboards([...dashboards, response.data]);
@@ -91,12 +85,10 @@ export default function DashboardPage() {
     
     try {
       await axios.delete(`${API_BASE_URL}/api/dashboards/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${session?.user?.email}`
-        }
+        withCredentials: true
       });
       
-      setDashboards(dashboards.filter(dashboard => dashboard.id !== id));
+      setDashboards(dashboards.filter(dashboard => dashboard._id !== id));
     } catch (err) {
       console.error('Error deleting dashboard:', err);
       setError('Failed to delete dashboard. Please try again.');
@@ -144,28 +136,16 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 py-8">
-      <div className="max-w-6xl mx-auto px-4">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-white">My Dashboards</h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {isAdmin ? 'Admin Dashboard - Manage all dashboards' : 'User Dashboard - Claim and manage your profiles'}
-            </p>
-          </div>
-          {isAdmin && (
-            <button
-              onClick={() => router.push('/admin')}
-              className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 mr-2"
-            >
-              Admin Panel
-            </button>
-          )}
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Your Dashboards</h1>
           <button
             onClick={() => setIsCreating(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-blue-700"
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
           >
-            <FaPlus /> Create New Dashboard
+            <FaPlus />
+            Create Dashboard
           </button>
         </div>
 
@@ -176,63 +156,55 @@ export default function DashboardPage() {
         )}
 
         {isCreating && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
             <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white">Create New Dashboard</h2>
             <form onSubmit={handleCreateDashboard}>
               <div className="mb-4">
-                <label className="block text-gray-700 dark:text-gray-300 mb-2" htmlFor="name">
-                  Dashboard Name
-                </label>
+                <label className="block text-gray-700 dark:text-gray-300 mb-2">Name</label>
                 <input
                   type="text"
-                  id="name"
                   value={newDashboard.name}
                   onChange={(e) => setNewDashboard({ ...newDashboard, name: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
                 />
               </div>
               <div className="mb-4">
-                <label className="block text-gray-700 dark:text-gray-300 mb-2" htmlFor="description">
-                  Description
-                </label>
+                <label className="block text-gray-700 dark:text-gray-300 mb-2">Description</label>
                 <textarea
-                  id="description"
                   value={newDashboard.description}
                   onChange={(e) => setNewDashboard({ ...newDashboard, description: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   rows={3}
                 />
               </div>
               <div className="mb-4">
-                <label className="block text-gray-700 dark:text-gray-300 mb-2" htmlFor="theme">
-                  Theme
-                </label>
+                <label className="block text-gray-700 dark:text-gray-300 mb-2">Theme</label>
                 <select
-                  id="theme"
                   value={newDashboard.theme}
                   onChange={(e) => setNewDashboard({ ...newDashboard, theme: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="default">Default</option>
-                  <option value="ocean">Ocean</option>
-                  <option value="forest">Forest</option>
-                  <option value="sunset">Sunset</option>
+                  <option value="dark">Dark</option>
+                  <option value="light">Light</option>
+                  <option value="custom">Custom</option>
                 </select>
               </div>
               <div className="flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsCreating(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
                 >
-                  <FaSave /> Create Dashboard
+                  <FaSave />
+                  Create
                 </button>
               </div>
             </form>
@@ -241,55 +213,46 @@ export default function DashboardPage() {
 
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <p className="text-gray-600 dark:text-gray-400">Loading your dashboards...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
           </div>
         ) : dashboards.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center">
             <p className="text-gray-600 dark:text-gray-400 mb-4">You don't have any dashboards yet.</p>
             <button
               onClick={() => setIsCreating(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md mx-auto"
             >
+              <FaPlus />
               Create Your First Dashboard
             </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {dashboards.map((dashboard) => (
-              <div key={dashboard.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+              <div key={dashboard._id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
                 <div className="p-6">
                   <h3 className="text-xl font-semibold mb-2 text-gray-800 dark:text-white">{dashboard.name}</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">{dashboard.description}</p>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">{dashboard.description || 'No description'}</p>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500 dark:text-gray-400">
                       Created: {new Date(dashboard.createdAt).toLocaleDateString()}
                     </span>
                     <div className="flex gap-2">
                       <button
-                        onClick={() => handleViewDashboard(dashboard.id)}
+                        onClick={() => handleViewDashboard(dashboard._id)}
                         className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                       >
                         View
                       </button>
-                      {dashboard.claimedBy ? (
-                        <button
-                          onClick={() => handleEditDashboard(dashboard.id)}
-                          className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300"
-                        >
-                          <FaEdit />
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleClaimDashboard(dashboard.id)}
-                          className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
-                          title="Claim Dashboard"
-                        >
-                          <FaUserPlus />
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleEditDashboard(dashboard._id)}
+                        className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300"
+                      >
+                        <FaEdit />
+                      </button>
                       {isAdmin && (
                         <button
-                          onClick={() => handleDeleteDashboard(dashboard.id)}
+                          onClick={() => handleDeleteDashboard(dashboard._id)}
                           className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
                         >
                           <FaTrash />
@@ -297,11 +260,6 @@ export default function DashboardPage() {
                       )}
                     </div>
                   </div>
-                  {dashboard.claimedBy && (
-                    <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                      Claimed by: {dashboard.claimedBy}
-                    </div>
-                  )}
                 </div>
               </div>
             ))}
