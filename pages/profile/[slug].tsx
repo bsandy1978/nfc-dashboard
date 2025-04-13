@@ -49,7 +49,7 @@ export default function ProfilePage() {
     try {
       const response = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/profiles/${slug}`, {
         headers: {
-          Authorization: `Bearer ${session?.user?.accessToken}`
+          Authorization: `Bearer ${session?.backendToken}`
         }
       });
       
@@ -83,7 +83,7 @@ export default function ProfilePage() {
         formData,
         {
           headers: {
-            Authorization: `Bearer ${session?.user?.accessToken}`
+            Authorization: `Bearer ${session?.backendToken}`
           }
         }
       );
@@ -102,7 +102,7 @@ export default function ProfilePage() {
         {},
         {
           headers: {
-            Authorization: `Bearer ${session?.user?.accessToken}`
+            Authorization: `Bearer ${session?.backendToken}`
           }
         }
       );
