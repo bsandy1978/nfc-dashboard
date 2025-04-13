@@ -37,7 +37,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (status === 'loading') return;
     if (!session) {
-      router.push('/api/auth/signin');
+      router.push('/api/auth/signin?callbackUrl=' + encodeURIComponent(router.asPath));
       return;
     }
     if (slug) {
@@ -63,13 +63,25 @@ export default function ProfilePage() {
         setProfile(response.data.data);
         setFormData(response.data.data);
         setIsOwner(response.data.isOwner);
+        setError('');
       } else {
         setError('Invalid profile data received');
       }
       setLoading(false);
     } catch (err) {
       console.error('Error fetching profile:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load profile');
+      if (axios.isAxiosError(err)) {
+        if (err.response?.status === 401) {
+          setError('Authentication expired. Please sign in again.');
+          router.push('/api/auth/signin?callbackUrl=' + encodeURIComponent(router.asPath));
+        } else if (err.response?.status === 404) {
+          setError('Profile not found');
+        } else {
+          setError(err.response?.data?.message || 'Failed to load profile');
+        }
+      } else {
+        setError('Failed to load profile');
+      }
       setLoading(false);
     }
   };
@@ -112,7 +124,16 @@ export default function ProfilePage() {
       }
     } catch (err) {
       console.error('Error updating profile:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update profile');
+      if (axios.isAxiosError(err)) {
+        if (err.response?.status === 401) {
+          setError('Authentication expired. Please sign in again.');
+          router.push('/api/auth/signin?callbackUrl=' + encodeURIComponent(router.asPath));
+        } else {
+          setError(err.response?.data?.message || 'Failed to update profile');
+        }
+      } else {
+        setError('Failed to update profile');
+      }
     }
   };
 
@@ -142,7 +163,16 @@ export default function ProfilePage() {
       }
     } catch (err) {
       console.error('Error claiming profile:', err);
-      setError(err instanceof Error ? err.message : 'Failed to claim profile');
+      if (axios.isAxiosError(err)) {
+        if (err.response?.status === 401) {
+          setError('Authentication expired. Please sign in again.');
+          router.push('/api/auth/signin?callbackUrl=' + encodeURIComponent(router.asPath));
+        } else {
+          setError(err.response?.data?.message || 'Failed to claim profile');
+        }
+      } else {
+        setError('Failed to claim profile');
+      }
     }
   };
 
