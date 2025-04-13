@@ -1,48 +1,58 @@
-import axios from 'axios';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useSession, signIn } from 'next-auth/react';
 import { useRouter } from 'next/router';
-import { useSession, signIn, signOut } from 'next-auth/react';
-import { GoogleLogin } from '@react-oauth/google';
-import { FaPlus, FaTrash, FaCopy, FaQrcode, FaUserShield } from 'react-icons/fa';
+import axios from 'axios';
+import { FaEdit, FaSave, FaTrash, FaPlus, FaUserPlus } from 'react-icons/fa';
 
 interface DashboardData {
-  id: string;
+  _id: string;
   name: string;
   description: string;
-  slug: string;
+  theme: string;
   createdAt: string;
-  ownerEmail: string | null;
+  updatedAt: string;
+  isPublic: boolean;
+  owner: {
+    email: string;
+    name: string;
+  };
   accessCount: number;
-  claimedBy?: string;
-  claimedAt?: string;
 }
 
 export default function AdminPage() {
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-  const [dashboards, setDashboards] = useState<DashboardData[]>([]);
-  const [newDashboard, setNewDashboard] = useState({ name: '', description: '' });
-  const [error, setError] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(false);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
-  const router = useRouter();
   const { data: session, status } = useSession();
+  const router = useRouter();
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+  
+  const [dashboards, setDashboards] = useState<DashboardData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [newDashboard, setNewDashboard] = useState({ name: '', description: '', theme: 'default' });
+  const [isCreating, setIsCreating] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Check if user is admin
   useEffect(() => {
     if (session?.user?.email) {
-      // Check if user email is in admin list
       const adminEmails = process.env.NEXT_PUBLIC_ADMIN_EMAILS?.split(',') || [];
-      const userIsAdmin = adminEmails.includes(session.user.email);
-      setIsAdmin(userIsAdmin);
+      const isUserAdmin = adminEmails.includes(session.user.email);
+      setIsAdmin(isUserAdmin);
       
-      // If not admin, redirect to dashboard
-      if (!userIsAdmin && status === 'authenticated') {
+      // Only redirect if not admin and not loading
+      if (!isUserAdmin && status !== 'loading') {
         router.push('/dashboard');
       }
     }
   }, [session, status, router]);
 
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      signIn('google', { callbackUrl: '/admin' });
+    }
+  }, [status]);
+
+  // Fetch all dashboards if admin
   useEffect(() => {
     if (status === 'authenticated' && isAdmin) {
       fetchDashboards();
@@ -53,14 +63,12 @@ export default function AdminPage() {
     try {
       setLoading(true);
       const response = await axios.get(`${API_BASE_URL}/api/dashboards`, {
-        headers: {
-          'Authorization': session?.user?.email ? `Bearer ${session.user.email}` : undefined
-        }
+        withCredentials: true
       });
       setDashboards(response.data);
-    } catch (error) {
-      console.error('Error fetching dashboards:', error);
-      setError('Failed to fetch dashboards. Please try again.');
+    } catch (err) {
+      console.error('Error fetching dashboards:', err);
+      setError('Failed to load dashboards. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -68,25 +76,17 @@ export default function AdminPage() {
 
   const handleCreateDashboard = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
     try {
       const response = await axios.post(`${API_BASE_URL}/api/dashboards`, newDashboard, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': session?.user?.email ? `Bearer ${session.user.email}` : undefined
-        }
+        withCredentials: true
       });
       
-      if (response.data) {
-        setDashboards([...dashboards, response.data]);
-        setNewDashboard({ name: '', description: '' });
-        setShowCreateForm(false);
-      }
-    } catch (error: any) {
-      setError(error.response?.data?.message || 'Error creating dashboard');
-    } finally {
-      setLoading(false);
+      setDashboards([...dashboards, response.data]);
+      setNewDashboard({ name: '', description: '', theme: 'default' });
+      setIsCreating(false);
+    } catch (err) {
+      console.error('Error creating dashboard:', err);
+      setError('Failed to create dashboard. Please try again.');
     }
   };
 
@@ -95,209 +95,212 @@ export default function AdminPage() {
     
     try {
       await axios.delete(`${API_BASE_URL}/api/dashboards/${id}`, {
-        headers: {
-          'Authorization': session?.user?.email ? `Bearer ${session.user.email}` : undefined
-        }
+        withCredentials: true
       });
-      setDashboards(dashboards.filter(d => d.id !== id));
-    } catch (error: any) {
-      setError(error.response?.data?.message || 'Error deleting dashboard');
+      
+      setDashboards(dashboards.filter(dashboard => dashboard._id !== id));
+    } catch (err) {
+      console.error('Error deleting dashboard:', err);
+      setError('Failed to delete dashboard. Please try again.');
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-      .then(() => {
-        alert('Link copied to clipboard!');
-      })
-      .catch(err => {
-        console.error('Failed to copy: ', err);
-        setError('Failed to copy to clipboard');
-      });
+  const handleEditDashboard = (id: string) => {
+    router.push(`/dashboard/edit/${id}`);
+  };
+
+  const handleViewDashboard = (id: string) => {
+    router.push(`/p/${id}`);
   };
 
   if (status === 'loading') {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
   }
 
   if (status === 'unauthenticated') {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <h1 className="text-2xl mb-4">Admin Dashboard</h1>
-        <p className="mb-4">Please sign in to access the admin features</p>
-        <GoogleLogin
-          onSuccess={(response) => {
-            signIn('google', { 
-              callbackUrl: window.location.href,
-              redirect: true
-            });
-          }}
-          onError={() => {
-            setError('Login failed');
-          }}
-        />
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Admin Access Required</h1>
+          <p className="mb-4">Please sign in with an admin account to continue.</p>
+          <button
+            onClick={() => signIn('google', { callbackUrl: '/admin' })}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+          >
+            Sign in with Google
+          </button>
+        </div>
       </div>
     );
   }
 
   if (!isAdmin) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <h1 className="text-2xl mb-4">Access Denied</h1>
-        <p className="mb-4">You do not have permission to access the admin dashboard.</p>
-        <button
-          onClick={() => router.push('/dashboard')}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-        >
-          Go to Dashboard
-        </button>
+      <div className="flex justify-center items-center h-screen">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+          <p className="mb-4">You do not have permission to access the admin page.</p>
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+          >
+            Go to Dashboard
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-          <p className="text-sm text-gray-600">Logged in as: {session.user?.email}</p>
-        </div>
-        <div className="flex gap-2">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Admin Dashboard</h1>
           <button
-            onClick={() => router.push('/dashboard')}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+            onClick={() => setIsCreating(true)}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
           >
-            User Dashboard
-          </button>
-          <button
-            onClick={() => signOut()}
-            className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-          >
-            Sign Out
+            <FaPlus />
+            Create Dashboard
           </button>
         </div>
-      </div>
 
-      <div className="mb-8">
-        <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 flex items-center gap-2"
-        >
-          <FaPlus /> {showCreateForm ? 'Cancel' : 'Create New Dashboard'}
-        </button>
-      </div>
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
+          </div>
+        )}
 
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
-        </div>
-      )}
+        {isCreating && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
+            <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white">Create New Dashboard</h2>
+            <form onSubmit={handleCreateDashboard}>
+              <div className="mb-4">
+                <label className="block text-gray-700 dark:text-gray-300 mb-2">Name</label>
+                <input
+                  type="text"
+                  value={newDashboard.name}
+                  onChange={(e) => setNewDashboard({ ...newDashboard, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700 dark:text-gray-300 mb-2">Description</label>
+                <textarea
+                  value={newDashboard.description}
+                  onChange={(e) => setNewDashboard({ ...newDashboard, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={3}
+                />
+              </div>
+              <div className="mb-4">
+                <label className="block text-gray-700 dark:text-gray-300 mb-2">Theme</label>
+                <select
+                  value={newDashboard.theme}
+                  onChange={(e) => setNewDashboard({ ...newDashboard, theme: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="default">Default</option>
+                  <option value="dark">Dark</option>
+                  <option value="light">Light</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCreating(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+                >
+                  <FaSave />
+                  Create
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
 
-      {showCreateForm && (
-        <div className="bg-white shadow-md rounded-lg p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">Create New Dashboard</h2>
-          <form onSubmit={handleCreateDashboard}>
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="name">
-                Dashboard Name
-              </label>
-              <input
-                type="text"
-                id="name"
-                value={newDashboard.name}
-                onChange={(e) => setNewDashboard({ ...newDashboard, name: e.target.value })}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                required
-              />
-            </div>
-            <div className="mb-4">
-              <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="description">
-                Description
-              </label>
-              <textarea
-                id="description"
-                value={newDashboard.description}
-                onChange={(e) => setNewDashboard({ ...newDashboard, description: e.target.value })}
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                rows={3}
-              />
-            </div>
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+          </div>
+        ) : dashboards.length === 0 ? (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center">
+            <p className="text-gray-600 dark:text-gray-400 mb-4">No dashboards found.</p>
             <button
-              type="submit"
-              disabled={loading}
-              className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 disabled:opacity-50"
+              onClick={() => setIsCreating(true)}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md mx-auto"
             >
-              {loading ? 'Creating...' : 'Create Dashboard'}
+              <FaPlus />
+              Create Dashboard
             </button>
-          </form>
-        </div>
-      )}
-
-      <div className="bg-white shadow-md rounded-lg overflow-hidden">
-        <table className="min-w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Access Count</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {dashboards.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                  No dashboards found. Create a new dashboard to get started.
-                </td>
-              </tr>
-            ) : (
-              dashboards.map((dashboard) => (
-                <tr key={dashboard.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">{dashboard.name}</td>
-                  <td className="px-6 py-4">{dashboard.description}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{dashboard.ownerEmail || 'Unclaimed'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">{dashboard.accessCount}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {dashboard.claimedBy ? (
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                        Claimed
-                      </span>
-                    ) : (
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                        Available
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap space-x-2">
-                    <button
-                      onClick={() => copyToClipboard(`${window.location.origin}/p/${dashboard.slug}`)}
-                      className="text-blue-600 hover:text-blue-900"
-                      title="Copy Link"
-                    >
-                      <FaCopy />
-                    </button>
-                    <button
-                      onClick={() => window.open(`${window.location.origin}/p/${dashboard.slug}`, '_blank')}
-                      className="text-green-600 hover:text-green-900"
-                      title="View QR Code"
-                    >
-                      <FaQrcode />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteDashboard(dashboard.id)}
-                      className="text-red-600 hover:text-red-900"
-                      title="Delete Dashboard"
-                    >
-                      <FaTrash />
-                    </button>
-                  </td>
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Description</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Owner</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Access Count</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {dashboards.map((dashboard) => (
+                  <tr key={dashboard._id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">{dashboard.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{dashboard.description || 'No description'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{dashboard.owner?.email || 'Unknown'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{dashboard.accessCount || 0}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        dashboard.isPublic ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {dashboard.isPublic ? 'Public' : 'Private'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleViewDashboard(dashboard._id)}
+                          className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                        >
+                          View
+                        </button>
+                        <button
+                          onClick={() => handleEditDashboard(dashboard._id)}
+                          className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300"
+                        >
+                          <FaEdit />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteDashboard(dashboard._id)}
+                          className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                        >
+                          <FaTrash />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
