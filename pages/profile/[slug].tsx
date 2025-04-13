@@ -43,23 +43,33 @@ export default function ProfilePage() {
     if (slug) {
       fetchProfile();
     }
-  }, [session, status, slug]);
+  }, [session, status, slug, router]);
 
   const fetchProfile = async () => {
+    if (!session?.backendToken) {
+      setError('Authentication required');
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/profiles/${slug}`, {
         headers: {
-          Authorization: `Bearer ${session?.backendToken}`
+          Authorization: `Bearer ${session.backendToken}`
         }
       });
       
-      setProfile(response.data.data);
-      setFormData(response.data.data);
-      setIsOwner(response.data.isOwner);
+      if (response.data?.data) {
+        setProfile(response.data.data);
+        setFormData(response.data.data);
+        setIsOwner(response.data.isOwner);
+      } else {
+        setError('Invalid profile data received');
+      }
       setLoading(false);
     } catch (err) {
       console.error('Error fetching profile:', err);
-      setError('Failed to load profile');
+      setError(err instanceof Error ? err.message : 'Failed to load profile');
       setLoading(false);
     }
   };
@@ -77,40 +87,62 @@ export default function ProfilePage() {
   };
 
   const handleSave = async () => {
+    if (!session?.backendToken || !profile?._id) {
+      setError('Authentication required');
+      return;
+    }
+
     try {
       const response = await axios.put(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/profiles/${profile?._id}`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/profiles/${profile._id}`,
         formData,
         {
           headers: {
-            Authorization: `Bearer ${session?.backendToken}`
+            Authorization: `Bearer ${session.backendToken}`
           }
         }
       );
-      setProfile(response.data.data);
-      setIsEditing(false);
+      
+      if (response.data?.data) {
+        setProfile(response.data.data);
+        setIsEditing(false);
+        setError('');
+      } else {
+        setError('Invalid response from server');
+      }
     } catch (err) {
       console.error('Error updating profile:', err);
-      setError('Failed to update profile');
+      setError(err instanceof Error ? err.message : 'Failed to update profile');
     }
   };
 
   const handleClaim = async () => {
+    if (!session?.backendToken || !profile?._id) {
+      setError('Authentication required');
+      return;
+    }
+
     try {
       const response = await axios.put(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/profiles/${profile?._id}/claim`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/profiles/${profile._id}/claim`,
         {},
         {
           headers: {
-            Authorization: `Bearer ${session?.backendToken}`
+            Authorization: `Bearer ${session.backendToken}`
           }
         }
       );
-      setProfile(response.data.data);
-      setIsOwner(true);
+      
+      if (response.data?.data) {
+        setProfile(response.data.data);
+        setIsOwner(true);
+        setError('');
+      } else {
+        setError('Invalid response from server');
+      }
     } catch (err) {
       console.error('Error claiming profile:', err);
-      setError('Failed to claim profile');
+      setError(err instanceof Error ? err.message : 'Failed to claim profile');
     }
   };
 
@@ -151,16 +183,17 @@ export default function ProfilePage() {
               <input
                 type="text"
                 name="name"
-                value={formData.name}
+                value={formData.name || ''}
                 onChange={handleChange}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                required
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Bio</label>
               <textarea
                 name="bio"
-                value={formData.bio}
+                value={formData.bio || ''}
                 onChange={handleChange}
                 rows={4}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
@@ -171,7 +204,7 @@ export default function ProfilePage() {
               <input
                 type="text"
                 name="location"
-                value={formData.location}
+                value={formData.location || ''}
                 onChange={handleChange}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               />
@@ -181,9 +214,11 @@ export default function ProfilePage() {
               <input
                 type="url"
                 name="website"
-                value={formData.website}
+                value={formData.website || ''}
                 onChange={handleChange}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                pattern="https?://.+"
+                title="Please enter a valid URL starting with http:// or https://"
               />
             </div>
             <div className="space-y-2">
@@ -198,6 +233,8 @@ export default function ProfilePage() {
                     value={formData.social?.[platform] || ''}
                     onChange={(e) => handleSocialChange(platform, e.target.value)}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    pattern="https?://.+"
+                    title="Please enter a valid URL starting with http:// or https://"
                   />
                 </div>
               ))}
