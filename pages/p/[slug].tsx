@@ -173,14 +173,14 @@ export default function ProfilePage() {
 
     try {
       setLoading(true);
-      const response = await axios.post(`${API_BASE_URL}/api/profiles/${slug}/claim`, null, {
+      const response = await axios.patch(`${API_BASE_URL}/api/profiles/claim/${slug}`, null, {
         headers: {
           'Authorization': `Bearer ${session.user.email}`
         }
       });
       
-      if (response.data) {
-        setProfile(response.data);
+      if (response.data?.success) {
+        setProfile(response.data.data);
         setIsOwner(true);
         setEditMode(true);
         setNeedsLogin(false);

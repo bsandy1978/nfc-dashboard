@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
-import { FaEdit, FaSave, FaTrash, FaPlus, FaUserPlus } from 'react-icons/fa';
+import { FaEdit, FaSave, FaTrash, FaPlus, FaUserPlus, FaUsers, FaLink } from 'react-icons/fa';
+import Link from 'next/link';
 
 interface DashboardData {
   _id: string;
@@ -167,6 +168,25 @@ export default function AdminPage() {
             <FaPlus />
             Create Dashboard
           </button>
+        </div>
+
+        <div className="flex space-x-4 mb-8">
+          <Link href="/admin">
+            <a className={`flex items-center space-x-2 px-4 py-2 rounded-md ${
+              router.pathname === '/admin' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+            }`}>
+              <FaUsers />
+              <span>Users</span>
+            </a>
+          </Link>
+          <Link href="/admin/nfc-links">
+            <a className={`flex items-center space-x-2 px-4 py-2 rounded-md ${
+              router.pathname === '/admin/nfc-links' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+            }`}>
+              <FaLink />
+              <span>NFC Links</span>
+            </a>
+          </Link>
         </div>
 
         {error && (
