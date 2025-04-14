@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useSession, signIn } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
-import { FaEdit, FaSave, FaTrash, FaPlus, FaUserPlus, FaUsers, FaLink } from 'react-icons/fa';
-import Link from 'next/link';
+import { FaEdit, FaSave, FaTrash, FaPlus } from 'react-icons/fa';
+import Navigation from '../components/Navigation';
 
 interface DashboardData {
   _id: string;
@@ -30,46 +30,39 @@ export default function AdminPage() {
   const [error, setError] = useState('');
   const [newDashboard, setNewDashboard] = useState({ name: '', description: '', theme: 'default' });
   const [isCreating, setIsCreating] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  // Check if user is admin
-  useEffect(() => {
-    if (session?.user?.email) {
-      const adminEmails = process.env.NEXT_PUBLIC_ADMIN_EMAILS?.split(',') || [];
-      const isUserAdmin = adminEmails.includes(session.user.email);
-      setIsAdmin(isUserAdmin);
-      
-      // Only redirect if not admin and not loading
-      if (!isUserAdmin && status !== 'loading') {
-        router.push('/dashboard');
-      }
-    }
-  }, [session, status, router]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
     if (status === 'unauthenticated') {
-      signIn('google', { callbackUrl: '/admin' });
+      router.push('/');
     }
-  }, [status]);
+  }, [status, router]);
 
-  // Fetch all dashboards if admin
+  // Check if user is admin
   useEffect(() => {
-    if (status === 'authenticated' && isAdmin) {
+    if (status === 'authenticated' && !session?.user?.isAdmin) {
+      router.push('/dashboard');
+    }
+  }, [session, status, router]);
+
+  // Fetch dashboards
+  useEffect(() => {
+    if (session?.user?.isAdmin) {
       fetchDashboards();
     }
-  }, [status, isAdmin]);
+  }, [session]);
 
   const fetchDashboards = async () => {
     try {
-      setLoading(true);
       const response = await axios.get(`${API_BASE_URL}/api/dashboards`, {
-        withCredentials: true
+        headers: {
+          Authorization: `Bearer ${session?.user?.backendToken}`,
+        },
       });
       setDashboards(response.data);
-    } catch (err) {
-      console.error('Error fetching dashboards:', err);
-      setError('Failed to load dashboards. Please try again.');
+    } catch (error) {
+      console.error('Error fetching dashboards:', error);
+      setError('Failed to fetch dashboards');
     } finally {
       setLoading(false);
     }
@@ -78,249 +71,185 @@ export default function AdminPage() {
   const handleCreateDashboard = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/dashboards`, newDashboard, {
-        withCredentials: true
-      });
-      
+      const response = await axios.post(
+        `${API_BASE_URL}/api/dashboards`,
+        newDashboard,
+        {
+          headers: {
+            Authorization: `Bearer ${session?.user?.backendToken}`,
+          },
+        }
+      );
       setDashboards([...dashboards, response.data]);
       setNewDashboard({ name: '', description: '', theme: 'default' });
       setIsCreating(false);
-    } catch (err) {
-      console.error('Error creating dashboard:', err);
-      setError('Failed to create dashboard. Please try again.');
+    } catch (error) {
+      console.error('Error creating dashboard:', error);
+      setError('Failed to create dashboard');
     }
   };
 
   const handleDeleteDashboard = async (id: string) => {
     if (!confirm('Are you sure you want to delete this dashboard?')) return;
-    
     try {
       await axios.delete(`${API_BASE_URL}/api/dashboards/${id}`, {
-        withCredentials: true
+        headers: {
+          Authorization: `Bearer ${session?.user?.backendToken}`,
+        },
       });
-      
-      setDashboards(dashboards.filter(dashboard => dashboard._id !== id));
-    } catch (err) {
-      console.error('Error deleting dashboard:', err);
-      setError('Failed to delete dashboard. Please try again.');
+      setDashboards(dashboards.filter((d) => d._id !== id));
+    } catch (error) {
+      console.error('Error deleting dashboard:', error);
+      setError('Failed to delete dashboard');
     }
   };
 
-  const handleEditDashboard = (id: string) => {
-    router.push(`/dashboard/edit/${id}`);
-  };
-
-  const handleViewDashboard = (id: string) => {
-    router.push(`/p/${id}`);
-  };
-
-  if (status === 'loading') {
+  if (status === 'loading' || loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
-  if (status === 'unauthenticated') {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Admin Access Required</h1>
-          <p className="mb-4">Please sign in with an admin account to continue.</p>
-          <button
-            onClick={() => signIn('google', { callbackUrl: '/admin' })}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-          >
-            Sign in with Google
-          </button>
+      <div className="min-h-screen bg-gray-100">
+        <Navigation />
+        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+          <div className="px-4 py-6 sm:px-0">
+            <div className="flex justify-center items-center h-64">
+              <div className="text-gray-500">Loading...</div>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (!isAdmin) {
-    return (
-      <div className="flex justify-center items-center h-screen">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
-          <p className="mb-4">You do not have permission to access the admin page.</p>
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-          >
-            Go to Dashboard
-          </button>
-        </div>
-      </div>
-    );
+  if (!session?.user?.isAdmin) {
+    return null;
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Admin Dashboard</h1>
-          <button
-            onClick={() => setIsCreating(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-          >
-            <FaPlus />
-            Create Dashboard
-          </button>
-        </div>
-
-        <div className="flex space-x-4 mb-8">
-          <Link href="/admin">
-            <a className={`flex items-center space-x-2 px-4 py-2 rounded-md ${
-              router.pathname === '/admin' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
-            }`}>
-              <FaUsers />
-              <span>Users</span>
-            </a>
-          </Link>
-          <Link href="/admin/nfc-links">
-            <a className={`flex items-center space-x-2 px-4 py-2 rounded-md ${
-              router.pathname === '/admin/nfc-links' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'
-            }`}>
-              <FaLink />
-              <span>NFC Links</span>
-            </a>
-          </Link>
-        </div>
-
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
-          </div>
-        )}
-
-        {isCreating && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white">Create New Dashboard</h2>
-            <form onSubmit={handleCreateDashboard}>
-              <div className="mb-4">
-                <label className="block text-gray-700 dark:text-gray-300 mb-2">Name</label>
-                <input
-                  type="text"
-                  value={newDashboard.name}
-                  onChange={(e) => setNewDashboard({ ...newDashboard, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-gray-700 dark:text-gray-300 mb-2">Description</label>
-                <textarea
-                  value={newDashboard.description}
-                  onChange={(e) => setNewDashboard({ ...newDashboard, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  rows={3}
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-gray-700 dark:text-gray-300 mb-2">Theme</label>
-                <select
-                  value={newDashboard.theme}
-                  onChange={(e) => setNewDashboard({ ...newDashboard, theme: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="default">Default</option>
-                  <option value="dark">Dark</option>
-                  <option value="light">Light</option>
-                  <option value="custom">Custom</option>
-                </select>
-              </div>
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsCreating(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-                >
-                  <FaSave />
-                  Create
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-          </div>
-        ) : dashboards.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center">
-            <p className="text-gray-600 dark:text-gray-400 mb-4">No dashboards found.</p>
+    <div className="min-h-screen bg-gray-100">
+      <Navigation />
+      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 py-6 sm:px-0">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-semibold text-gray-900">Admin Dashboard</h1>
             <button
               onClick={() => setIsCreating(true)}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md mx-auto"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
             >
-              <FaPlus />
+              <FaPlus className="mr-2" />
               Create Dashboard
             </button>
           </div>
-        ) : (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Description</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Owner</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Access Count</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {dashboards.map((dashboard) => (
-                  <tr key={dashboard._id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">{dashboard.name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{dashboard.description || 'No description'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{dashboard.owner?.email || 'Unknown'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{dashboard.accessCount || 0}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        dashboard.isPublic ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {dashboard.isPublic ? 'Public' : 'Private'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleViewDashboard(dashboard._id)}
-                          className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                        >
-                          View
-                        </button>
-                        <button
-                          onClick={() => handleEditDashboard(dashboard._id)}
-                          className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300"
-                        >
-                          <FaEdit />
-                        </button>
+
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              {error}
+            </div>
+          )}
+
+          {isCreating && (
+            <form onSubmit={handleCreateDashboard} className="bg-white shadow rounded-lg p-6 mb-6">
+              <div className="grid grid-cols-1 gap-6">
+                <div>
+                  <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    id="name"
+                    value={newDashboard.name}
+                    onChange={(e) => setNewDashboard({ ...newDashboard, name: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                    Description
+                  </label>
+                  <textarea
+                    id="description"
+                    value={newDashboard.description}
+                    onChange={(e) => setNewDashboard({ ...newDashboard, description: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="theme" className="block text-sm font-medium text-gray-700">
+                    Theme
+                  </label>
+                  <select
+                    id="theme"
+                    value={newDashboard.theme}
+                    onChange={(e) => setNewDashboard({ ...newDashboard, theme: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  >
+                    <option value="default">Default</option>
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                  </select>
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreating(false)}
+                    className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                  >
+                    <FaSave className="mr-2" />
+                    Create
+                  </button>
+                </div>
+              </div>
+            </form>
+          )}
+
+          <div className="bg-white shadow overflow-hidden sm:rounded-md">
+            <ul className="divide-y divide-gray-200">
+              {dashboards.map((dashboard) => (
+                <li key={dashboard._id}>
+                  <div className="px-4 py-4 sm:px-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-lg font-medium text-gray-900 truncate">
+                          {dashboard.name}
+                        </h3>
+                        <p className="mt-1 text-sm text-gray-500">{dashboard.description}</p>
+                      </div>
+                      <div className="flex items-center space-x-4">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {dashboard.theme}
+                        </span>
                         <button
                           onClick={() => handleDeleteDashboard(dashboard._id)}
-                          className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                          className="text-red-600 hover:text-red-900"
                         >
                           <FaTrash />
                         </button>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                    <div className="mt-2 sm:flex sm:justify-between">
+                      <div className="sm:flex">
+                        <p className="flex items-center text-sm text-gray-500">
+                          Owner: {dashboard.owner.name}
+                        </p>
+                      </div>
+                      <div className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
+                        <p>
+                          Created {new Date(dashboard.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
