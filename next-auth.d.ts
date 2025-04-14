@@ -7,6 +7,7 @@ declare module 'next-auth' {
     backendToken?: string;
     userId?: string;
     isOwner?: boolean;
+    isAdmin?: boolean;
     user: {
       email?: string;
       name?: string;
@@ -16,6 +17,7 @@ declare module 'next-auth' {
       backendToken?: string;
       userId?: string;
       isOwner?: boolean;
+      isAdmin?: boolean;
     };
   }
 
@@ -25,5 +27,6 @@ declare module 'next-auth' {
     backendToken?: string;
     userId?: string;
     isOwner?: boolean;
+    isAdmin?: boolean;
   }
 } 

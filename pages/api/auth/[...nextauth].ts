@@ -10,6 +10,7 @@ interface CustomToken extends JWT {
   backendToken?: string;
   userId?: string;
   isOwner?: boolean;
+  isAdmin?: boolean;
 }
 
 // Get session max age from environment variable or default to 24 hours
@@ -49,50 +50,42 @@ export default NextAuth({
       if (account) {
         const customToken = token as CustomToken;
         customToken.accessToken = account.access_token;
-        customToken.googleId = profile?.sub;
+        customToken.googleId = account.providerAccountId;
         
         try {
-          // Exchange Google token for backend token
-          const response = await axios.post(
-            `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/google/callback`,
-            {
-              access_token: account.access_token,
-              id_token: account.id_token,
-              googleId: profile?.sub
-            }
-          );
+          // Get user data from your backend
+          const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/auth/google`, {
+            accessToken: account.access_token,
+            googleId: account.providerAccountId,
+            email: profile?.email,
+            name: profile?.name,
+            image: profile?.image,
+          });
 
-          if (response.data?.token) {
+          if (response.data) {
             customToken.backendToken = response.data.token;
             customToken.userId = response.data.userId;
             customToken.isOwner = response.data.isOwner;
+            customToken.isAdmin = response.data.isAdmin;
           }
         } catch (error) {
-          console.error('Error exchanging tokens:', error);
+          console.error('Error getting user data:', error);
         }
-        return customToken;
       }
       return token;
     },
     async session({ session, token }) {
       const customToken = token as CustomToken;
-      
-      // Add token data to session
-      session.accessToken = customToken.accessToken;
-      session.googleId = customToken.googleId;
-      session.backendToken = customToken.backendToken;
-      session.userId = customToken.userId;
-      session.isOwner = customToken.isOwner;
-      
-      // Also add these to the user object for convenience
-      session.user.accessToken = customToken.accessToken;
-      session.user.googleId = customToken.googleId;
-      session.user.backendToken = customToken.backendToken;
-      session.user.userId = customToken.userId;
-      session.user.isOwner = customToken.isOwner;
-      
+      if (session.user) {
+        session.user.accessToken = customToken.accessToken;
+        session.user.googleId = customToken.googleId;
+        session.user.backendToken = customToken.backendToken;
+        session.user.userId = customToken.userId;
+        session.user.isOwner = customToken.isOwner;
+        session.user.isAdmin = customToken.isAdmin;
+      }
       return session;
-    }
+    },
   },
   pages: {
     signIn: '/',
