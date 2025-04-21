@@ -6,28 +6,17 @@ import { FaPlus, FaTrash, FaCheck, FaTimes, FaQrcode, FaCopy, FaEdit } from 'rea
 import { QRCodeCanvas } from 'qrcode.react';
 import Navigation from '../../components/Navigation';
 
-interface NfcLink {
-  id: string;
-  slug: string;
-  link: string;
-  isActive: boolean;
-  isAssigned: boolean;
-  assignedTo: string | null;
-  assignedAt: string | null;
-  createdAt: string;
-}
-
 export default function NfcLinks() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
   
-  const [nfcLinks, setNfcLinks] = useState<NfcLink[]>([]);
+  const [nfcLinks, setNfcLinks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [selectedLink, setSelectedLink] = useState<string | null>(null);
+  const [selectedLink, setSelectedLink] = useState(null);
   const [showQRCode, setShowQRCode] = useState(false);
   const [newSlug, setNewSlug] = useState('');
 
@@ -99,7 +88,7 @@ export default function NfcLinks() {
     }
   };
 
-  const handleDeactivateLink = async (slug: string) => {
+  const handleDeactivateLink = async (slug) => {
     if (!confirm('Are you sure you want to deactivate this NFC link?')) return;
     
     try {
@@ -120,17 +109,17 @@ export default function NfcLinks() {
     }
   };
 
-  const handleCopyLink = (link: string) => {
+  const handleCopyLink = (link) => {
     navigator.clipboard.writeText(link);
     alert('Link copied to clipboard!');
   };
 
-  const handleShowQRCode = (link: string) => {
+  const handleShowQRCode = (link) => {
     setSelectedLink(link);
     setShowQRCode(true);
   };
 
-  const createLink = async (e: React.FormEvent) => {
+  const createLink = async (e) => {
     e.preventDefault();
     try {
       const response = await axios.post(`${API_BASE_URL}/api/nfc-links`, { slug: newSlug }, {
@@ -308,7 +297,7 @@ export default function NfcLinks() {
                               <span>{link.assignedTo}</span>
                             </div>
                             <div className="text-xs text-gray-400">
-                              {new Date(link.assignedAt!).toLocaleDateString()}
+                              {new Date(link.assignedAt).toLocaleDateString()}
                             </div>
                           </div>
                         ) : (

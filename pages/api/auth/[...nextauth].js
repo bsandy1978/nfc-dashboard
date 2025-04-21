@@ -1,17 +1,6 @@
 import NextAuth from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import axios from 'axios';
-import { JWT } from 'next-auth/jwt';
-
-// Define custom token type
-interface CustomToken extends JWT {
-  accessToken?: string;
-  googleId?: string;
-  backendToken?: string;
-  userId?: string;
-  isOwner?: boolean;
-  isAdmin?: boolean;
-}
 
 // Get session max age from environment variable or default to 24 hours
 const sessionMaxAge = parseInt(process.env.SESSION_MAX_AGE || '86400', 10);
@@ -19,8 +8,8 @@ const sessionMaxAge = parseInt(process.env.SESSION_MAX_AGE || '86400', 10);
 export default NextAuth({
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       authorization: {
         params: {
           prompt: "consent",
@@ -48,9 +37,8 @@ export default NextAuth({
   callbacks: {
     async jwt({ token, account, profile }) {
       if (account) {
-        const customToken = token as CustomToken;
-        customToken.accessToken = account.access_token;
-        customToken.googleId = account.providerAccountId;
+        token.accessToken = account.access_token;
+        token.googleId = account.providerAccountId;
         
         try {
           // Get user data from your backend
@@ -63,10 +51,10 @@ export default NextAuth({
           });
 
           if (response.data) {
-            customToken.backendToken = response.data.token;
-            customToken.userId = response.data.userId;
-            customToken.isOwner = response.data.isOwner;
-            customToken.isAdmin = response.data.isAdmin;
+            token.backendToken = response.data.token;
+            token.userId = response.data.userId;
+            token.isOwner = response.data.isOwner;
+            token.isAdmin = response.data.isAdmin;
           }
         } catch (error) {
           console.error('Error getting user data:', error);
@@ -75,14 +63,13 @@ export default NextAuth({
       return token;
     },
     async session({ session, token }) {
-      const customToken = token as CustomToken;
       if (session.user) {
-        session.user.accessToken = customToken.accessToken;
-        session.user.googleId = customToken.googleId;
-        session.user.backendToken = customToken.backendToken;
-        session.user.userId = customToken.userId;
-        session.user.isOwner = customToken.isOwner;
-        session.user.isAdmin = customToken.isAdmin;
+        session.user.accessToken = token.accessToken;
+        session.user.googleId = token.googleId;
+        session.user.backendToken = token.backendToken;
+        session.user.userId = token.userId;
+        session.user.isOwner = token.isOwner;
+        session.user.isAdmin = token.isAdmin;
       }
       return session;
     },

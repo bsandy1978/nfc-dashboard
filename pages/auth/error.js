@@ -15,7 +15,7 @@ export default function AuthError() {
     return () => clearTimeout(timer);
   }, [router]);
 
-  const getErrorMessage = (errorCode: string | string[] | undefined) => {
+  const getErrorMessage = (errorCode) => {
     if (!errorCode) return 'An unknown error occurred';
     
     const code = Array.isArray(errorCode) ? errorCode[0] : errorCode;

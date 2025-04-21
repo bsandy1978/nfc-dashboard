@@ -4,26 +4,12 @@ import { useRouter } from 'next/router';
 import axios from 'axios';
 import { FaSave } from 'react-icons/fa';
 
-interface ProfileFormData {
-  name: string;
-  bio: string;
-  location: string;
-  website: string;
-  social: {
-    twitter?: string;
-    facebook?: string;
-    linkedin?: string;
-    instagram?: string;
-  };
-  isPublic: boolean;
-}
-
 export default function CreateProfilePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [formData, setFormData] = useState<ProfileFormData>({
+  const [formData, setFormData] = useState({
     name: '',
     bio: '',
     location: '',
@@ -39,24 +25,23 @@ export default function CreateProfilePage() {
     }
   }, [session, status]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e) => {
     const { name, value, type } = e.target;
     if (type === 'checkbox') {
-      const checkbox = e.target as HTMLInputElement;
-      setFormData(prev => ({ ...prev, [name]: checkbox.checked }));
+      setFormData(prev => ({ ...prev, [name]: e.target.checked }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
   };
 
-  const handleSocialChange = (platform: string, value: string) => {
+  const handleSocialChange = (platform, value) => {
     setFormData(prev => ({
       ...prev,
       social: { ...prev.social, [platform]: value }
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');

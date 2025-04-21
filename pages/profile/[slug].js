@@ -4,34 +4,15 @@ import { useRouter } from 'next/router';
 import axios from 'axios';
 import { FaEdit, FaSave, FaTimes, FaUserPlus } from 'react-icons/fa';
 
-interface ProfileData {
-  _id: string;
-  name: string;
-  bio: string;
-  location: string;
-  website: string;
-  social: {
-    twitter?: string;
-    facebook?: string;
-    linkedin?: string;
-    instagram?: string;
-  };
-  isPublic: boolean;
-  isClaimed: boolean;
-  googleId: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export default function ProfilePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { slug } = router.query;
-  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [profile, setProfile] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [formData, setFormData] = useState<Partial<ProfileData>>({});
+  const [formData, setFormData] = useState({});
   const [isOwner, setIsOwner] = useState(false);
 
   useEffect(() => {
@@ -86,12 +67,12 @@ export default function ProfilePage() {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSocialChange = (platform: string, value: string) => {
+  const handleSocialChange = (platform, value) => {
     setFormData(prev => ({
       ...prev,
       social: { ...prev.social, [platform]: value }

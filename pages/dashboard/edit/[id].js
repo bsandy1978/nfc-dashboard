@@ -4,22 +4,13 @@ import { useRouter } from 'next/router';
 import axios from 'axios';
 import { FaSave, FaArrowLeft } from 'react-icons/fa';
 
-interface DashboardData {
-  id: string;
-  name: string;
-  description: string;
-  theme: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export default function EditDashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { id } = router.query;
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
   
-  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -55,13 +46,13 @@ export default function EditDashboardPage() {
     }
   };
 
-  const handleChange = (field: keyof DashboardData, value: string) => {
+  const handleChange = (field, value) => {
     if (dashboard) {
       setDashboard({ ...dashboard, [field]: value });
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     if (!dashboard) return;
     

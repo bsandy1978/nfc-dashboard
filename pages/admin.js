@@ -5,27 +5,12 @@ import axios from 'axios';
 import { FaEdit, FaSave, FaTrash, FaPlus } from 'react-icons/fa';
 import Navigation from '../components/Navigation';
 
-interface DashboardData {
-  _id: string;
-  name: string;
-  description: string;
-  theme: string;
-  createdAt: string;
-  updatedAt: string;
-  isPublic: boolean;
-  owner: {
-    email: string;
-    name: string;
-  };
-  accessCount: number;
-}
-
 export default function AdminPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
   
-  const [dashboards, setDashboards] = useState<DashboardData[]>([]);
+  const [dashboards, setDashboards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [newDashboard, setNewDashboard] = useState({ name: '', description: '', theme: 'default' });
@@ -68,7 +53,7 @@ export default function AdminPage() {
     }
   };
 
-  const handleCreateDashboard = async (e: React.FormEvent) => {
+  const handleCreateDashboard = async (e) => {
     e.preventDefault();
     try {
       const response = await axios.post(
@@ -89,7 +74,7 @@ export default function AdminPage() {
     }
   };
 
-  const handleDeleteDashboard = async (id: string) => {
+  const handleDeleteDashboard = async (id) => {
     if (!confirm('Are you sure you want to delete this dashboard?')) return;
     try {
       await axios.delete(`${API_BASE_URL}/api/dashboards/${id}`, {
@@ -253,4 +238,4 @@ export default function AdminPage() {
       </div>
     </div>
   );
-}
+} 

@@ -1,193 +1,116 @@
-// pages/p/[slug].tsx
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import { useSession, signIn } from 'next-auth/react';
 import axios from 'axios';
 import { QRCodeCanvas } from 'qrcode.react';
+import { EnvelopeIcon } from '@heroicons/react/24/outline';
 import {
-  FaMoon,
-  FaSun,
-  FaDownload,
   FaEdit,
+  FaLock,
+  FaUnlock,
+  FaSpinner,
   FaInstagram,
   FaLinkedin,
   FaTwitter,
   FaGlobe,
   FaMapMarkerAlt,
   FaMoneyBill,
-  FaShareAlt,
-  FaSpinner,
-  FaLock,
-  FaUnlock,
-} from "react-icons/fa";
-import { EnvelopeIcon } from '@heroicons/react/24/outline';
-import { useSession, signIn } from 'next-auth/react';
-
-interface UserProfile {
-  id: string;
-  slug: string;
-  name?: string;
-  title?: string;
-  subtitle?: string;
-  avatar?: string;
-  email?: string;
-  instagram?: string;
-  linkedin?: string;
-  twitter?: string;
-  website?: string;
-  location?: string;
-  upi?: string;
-  ownerEmail: string | null;
-}
+} from 'react-icons/fa';
 
 export default function ProfilePage() {
   const router = useRouter();
   const { slug } = router.query;
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
-  const { data: session, status } = useSession();
-
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [isOwner, setIsOwner] = useState(false);
+  const { data: session } = useSession();
+  const [profile, setProfile] = useState({});
   const [loading, setLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [isAvatarUploading, setIsAvatarUploading] = useState(false);
+  const [error, setError] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
-  const [needsLogin, setNeedsLogin] = useState(false);
+  const [isAvatarUploading, setIsAvatarUploading] = useState(false);
 
-  // Fetch profile data when slug is available
+  const isOwner = session?.user?.email === profile.ownerEmail;
+
   useEffect(() => {
-    if (!slug) return;
+    if (slug) {
+      fetchProfile();
+    }
+  }, [slug]);
 
-    const fetchProfile = async () => {
-      setLoading(true);
-      setErrorMessage("");
-      try {
-        const response = await axios.get(`${API_BASE_URL}/api/profiles/${slug}`);
-        if (response.data) {
-          setProfile(response.data);
-          
-          // If profile has no owner and user is not logged in, show login prompt
-          if (!response.data.ownerEmail && !session?.user?.email) {
-            setNeedsLogin(true);
-          }
-          
-          // Check if the current user is the owner
-          if (session?.user?.email === response.data.ownerEmail) {
-            setIsOwner(true);
-            setEditMode(true); // Automatically enable edit mode for owner
-          }
-        }
-      } catch (error: any) {
-        console.error("Error fetching profile:", error);
-        if (error.response?.status === 404) {
-          setErrorMessage("Profile not found. It may have been deleted or the link is incorrect.");
-        } else {
-          setErrorMessage("Failed to load profile. Please try again later.");
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProfile();
-  }, [slug, session?.user?.email, API_BASE_URL]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!profile) return;
-    
-    const { name, value } = e.target;
-    setProfile({
-      ...profile,
-      [name]: value
-    });
-  };
-
-  const handleSave = async () => {
-    if (!profile || !isOwner) return;
-    
-    setLoading(true);
-    setErrorMessage("");
-    
+  const fetchProfile = async () => {
     try {
-      const response = await axios.put(`${API_BASE_URL}/api/profiles/${slug}`, profile, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': session?.user?.email ? `Bearer ${session.user.email}` : undefined
-        }
-      });
-      
-      if (response.data) {
-        setProfile(response.data);
-        setEditMode(false);
-        alert("Profile updated successfully!");
-      }
-    } catch (error: any) {
-      console.error("Error updating profile:", error);
-      setErrorMessage(error.response?.data?.message || "Failed to update profile. Please try again.");
+      setLoading(true);
+      const response = await axios.get(`/api/profiles/${slug}`);
+      setProfile(response.data);
+      setError(null);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to fetch profile');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!profile || !isOwner) return;
-    
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setProfile((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleSave = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.put(`/api/profiles/${profile.id}`, profile);
+      setProfile(response.data);
+      setEditMode(false);
+      setError(null);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAvatarUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
-    setIsAvatarUploading(true);
-    
+
+    const formData = new FormData();
+    formData.append('avatar', file);
+
     try {
-      const formData = new FormData();
-      formData.append('avatar', file);
-      
-      const response = await axios.post(`${API_BASE_URL}/api/profiles/${slug}/avatar`, formData, {
+      setIsAvatarUploading(true);
+      const response = await axios.post(`/api/profiles/${profile.id}/avatar`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
-          'Authorization': session?.user?.email ? `Bearer ${session.user.email}` : undefined
-        }
+        },
       });
-      
-      if (response.data && response.data.avatar) {
-        setProfile({
-          ...profile,
-          avatar: response.data.avatar
-        });
-      }
-    } catch (error: any) {
-      console.error("Error uploading avatar:", error);
-      setErrorMessage(error.response?.data?.message || "Failed to upload avatar. Please try again.");
+      setProfile((prev) => ({
+        ...prev,
+        avatar: response.data.avatar,
+      }));
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to upload avatar');
     } finally {
       setIsAvatarUploading(false);
     }
   };
 
   const handleInitialLogin = async () => {
-    if (!session?.user?.email) {
-      signIn('google', { 
-        callbackUrl: window.location.href,
-        redirect: true 
-      });
+    if (!session) {
+      await signIn();
       return;
     }
 
     try {
       setLoading(true);
-      const response = await axios.patch(`${API_BASE_URL}/api/profiles/claim/${slug}`, null, {
-        headers: {
-          'Authorization': `Bearer ${session.user.email}`
-        }
+      const response = await axios.post(`/api/profiles/${profile.id}/claim`, {
+        email: session.user.email,
       });
-      
-      if (response.data?.success) {
-        setProfile(response.data.data);
-        setIsOwner(true);
-        setEditMode(true);
-        setNeedsLogin(false);
-      }
-    } catch (error: any) {
-      console.error("Error claiming profile:", error);
-      setErrorMessage(error.response?.data?.message || "Failed to claim profile. Please try again.");
+      setProfile(response.data);
+      setError(null);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to claim profile');
     } finally {
       setLoading(false);
     }
@@ -195,58 +118,20 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <FaSpinner className="animate-spin text-4xl mx-auto mb-4" />
-          <p>Loading profile...</p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <FaSpinner className="animate-spin h-8 w-8 text-blue-500" />
       </div>
     );
   }
 
-  if (needsLogin) {
+  if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center max-w-md p-6 bg-white rounded-lg shadow-md">
-          <h2 className="text-xl font-bold mb-4">Claim Your Profile</h2>
-          <p className="mb-4">This profile is unclaimed. Sign in with Google to claim ownership and start editing.</p>
+      <div className="min-h-screen flex flex-col items-center justify-center">
+        <div className="text-red-500 mb-4">{error}</div>
+        <div>
           <button
-            onClick={handleInitialLogin}
-            className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600"
-          >
-            Sign in with Google
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (errorMessage) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center max-w-md p-6 bg-red-50 rounded-lg">
-          <h2 className="text-xl font-bold text-red-700 mb-2">Error</h2>
-          <p className="text-red-600">{errorMessage}</p>
-          <button 
             onClick={() => router.push('/')}
-            className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-          >
-            Go to Home
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!profile) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h2 className="text-xl font-bold mb-2">Profile Not Found</h2>
-          <p>The profile you're looking for doesn't exist or has been removed.</p>
-          <button 
-            onClick={() => router.push('/')}
-            className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
           >
             Go to Home
           </button>
@@ -496,10 +381,11 @@ export default function ProfilePage() {
               {showQRCode && (
                 <div className="mt-4 flex flex-col items-center">
                   <QRCodeCanvas
-                    value={window.location.href}
+                    value={typeof window !== 'undefined' ? window.location.href : ''}
                     size={200}
+                    level="H"
+                    includeMargin={true}
                   />
-                  <p className="mt-2 text-sm text-gray-500">Scan to view this profile</p>
                 </div>
               )}
             </div>
@@ -508,4 +394,4 @@ export default function ProfilePage() {
       </div>
     </div>
   );
-}
+} 

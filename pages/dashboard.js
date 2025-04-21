@@ -4,22 +4,12 @@ import { useRouter } from 'next/router';
 import axios from 'axios';
 import { FaEdit, FaSave, FaTrash, FaPlus, FaUserPlus } from 'react-icons/fa';
 
-interface DashboardData {
-  _id: string;
-  name: string;
-  description: string;
-  theme: string;
-  createdAt: string;
-  updatedAt: string;
-  isPublic: boolean;
-}
-
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
   
-  const [dashboards, setDashboards] = useState<DashboardData[]>([]);
+  const [dashboards, setDashboards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [newDashboard, setNewDashboard] = useState({ name: '', description: '', theme: 'default' });
@@ -64,7 +54,7 @@ export default function DashboardPage() {
     }
   };
 
-  const handleCreateDashboard = async (e: React.FormEvent) => {
+  const handleCreateDashboard = async (e) => {
     e.preventDefault();
     try {
       const response = await axios.post(`${API_BASE_URL}/api/dashboards`, newDashboard, {
@@ -80,7 +70,7 @@ export default function DashboardPage() {
     }
   };
 
-  const handleDeleteDashboard = async (id: string) => {
+  const handleDeleteDashboard = async (id) => {
     if (!confirm('Are you sure you want to delete this dashboard?')) return;
     
     try {
@@ -95,15 +85,15 @@ export default function DashboardPage() {
     }
   };
 
-  const handleEditDashboard = (id: string) => {
+  const handleEditDashboard = (id) => {
     router.push(`/dashboard/edit/${id}`);
   };
 
-  const handleViewDashboard = (id: string) => {
+  const handleViewDashboard = (id) => {
     router.push(`/p/${id}`);
   };
 
-  const handleClaimDashboard = async (id: string) => {
+  const handleClaimDashboard = async (id) => {
     try {
       await axios.put(`${API_BASE_URL}/api/profiles/${id}/claim`, {}, {
         headers: {
