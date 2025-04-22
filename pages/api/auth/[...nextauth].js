@@ -42,13 +42,12 @@ export default NextAuth({
         
         try {
           // Get user data from your backend
-          const response = await axios.post(`${process.env.NEXT_PUBLIC_BASE_API_URL}/auth/google`, {
-            accessToken: account.access_token,
-            googleId: account.providerAccountId,
-            email: profile?.email,
-            name: profile?.name,
-            image: profile?.image,
-          });
+          const response = await axios.post(
+            `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/google`,
+            {
+              token: account.id_token
+            }
+          );
 
           if (response.data) {
             token.backendToken = response.data.token;

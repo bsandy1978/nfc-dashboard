@@ -48,7 +48,7 @@ export default function CreateProfilePage() {
 
     try {
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/profiles`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/profiles`,
         formData
       );
       router.push(`/profile/${response.data.id}`);
