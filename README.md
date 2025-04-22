@@ -51,9 +51,18 @@ NEXT_PUBLIC_API_BASE_URL=https://nfc-dashboard-server.onrender.com
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=your-nextauth-secret-key-here
 
-# Google OAuth
+# Google OAuth (Backend)
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# Google OAuth (Frontend)
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id
+
+# Admin Emails (comma-separated)
+NEXT_PUBLIC_ADMIN_EMAILS=admin1@example.com,admin2@example.com
+
+# Session max age in seconds (optional, default: 86400)
+SESSION_MAX_AGE=86400
 ```
 
 4. Run the development server
@@ -90,6 +99,12 @@ Authentication is handled using NextAuth.js with Google OAuth. The admin dashboa
 
 This project can be deployed to Vercel, Netlify, or any other platform that supports Next.js applications.
 
+## Notes
+- Ensure all required environment variables are set, or the app may not function correctly.
+- Use the same Google Client ID for both backend and frontend if using Google OAuth.
+- `NEXT_PUBLIC_ADMIN_EMAILS` controls admin access in the dashboard and NFC links management.
+- `SESSION_MAX_AGE` controls session expiry for authentication (in seconds).
+
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is licensed under the MIT License - see the LICENSE file for details.

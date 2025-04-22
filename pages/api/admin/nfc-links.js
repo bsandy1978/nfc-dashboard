@@ -47,11 +47,19 @@ export default async function handler(req, res) {
         const link = await prisma.nfcLink.create({
           data: {
             slug,
-            link: `${process.env.NEXT_PUBLIC_BASE_URL}/r/${slug}`,
+            link: `${process.env.NEXT_PUBLIC_API_BASE_URL}/r/${slug}`,
           },
         });
 
-        return res.status(201).json(link);
+        const newLink = {
+          id: link.id,
+          slug: link.slug,
+          link: link.link,
+          isActive: link.isActive,
+          createdAt: new Date(link.createdAt).toLocaleDateString()
+        };
+
+        return res.status(201).json(newLink);
       } catch (error) {
         console.error('Error creating NFC link:', error);
         return res.status(500).json({ error: 'Failed to create NFC link' });

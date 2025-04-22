@@ -18,7 +18,7 @@ export default function App({ Component, pageProps: { session, ...pageProps } })
 
   return (
     <SessionProvider session={session}>
-      <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}>
+      <GoogleOAuthProvider clientId={process.env.GOOGLE_CLIENT_ID}>
         <Head>
           <title>NFC Dashboard - Digital Business Cards</title>
           <meta name="description" content="Create and share your digital business card" />
