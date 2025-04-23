@@ -40,15 +40,28 @@ export default function DashboardPage() {
   }, [status]);
 
   const fetchDashboards = async () => {
+    if (!session?.user?.backendToken) {
+      setError('Authentication required');
+      setLoading(false);
+      return;
+    }
+
     try {
-      setLoading(true);
-      const response = await axios.get(`${API_BASE_URL}/api/dashboards`, {
-        withCredentials: true
+      const response = await axios.get(`${API_BASE_URL}/api/v1/dashboards`, {
+        headers: {
+          Authorization: `Bearer ${session.user.backendToken}`
+        }
       });
-      setDashboards(response.data);
+      
+      if (response.data?.data) {
+        setDashboards(response.data.data);
+        setError('');
+      } else {
+        setError('Invalid dashboard data received');
+      }
     } catch (err) {
       console.error('Error fetching dashboards:', err);
-      setError('Failed to load your dashboards. Please try again.');
+      setError(err.response?.data?.error || 'Failed to fetch dashboards');
     } finally {
       setLoading(false);
     }
@@ -56,32 +69,60 @@ export default function DashboardPage() {
 
   const handleCreateDashboard = async (e) => {
     e.preventDefault();
+    if (!session?.user?.backendToken) {
+      setError('Authentication required');
+      return;
+    }
+
+    setLoading(true);
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/dashboards`, newDashboard, {
-        withCredentials: true
+      const response = await axios.post(`${API_BASE_URL}/api/v1/dashboards`, newDashboard, {
+        headers: {
+          Authorization: `Bearer ${session.user.backendToken}`
+        }
       });
       
-      setDashboards([...dashboards, response.data]);
-      setNewDashboard({ name: '', description: '', theme: 'default' });
-      setIsCreating(false);
+      if (response.data?.data) {
+        setDashboards([...dashboards, response.data.data]);
+        setNewDashboard({ name: '', description: '', theme: 'default' });
+        setIsCreating(false);
+        setError('');
+      } else {
+        setError('Invalid dashboard data received');
+      }
     } catch (err) {
       console.error('Error creating dashboard:', err);
-      setError('Failed to create dashboard. Please try again.');
+      setError(err.response?.data?.error || 'Failed to create dashboard');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDeleteDashboard = async (id) => {
-    if (!confirm('Are you sure you want to delete this dashboard?')) return;
-    
+    if (!session?.user?.backendToken) {
+      setError('Authentication required');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to delete this dashboard?')) {
+      return;
+    }
+
+    setLoading(true);
     try {
-      await axios.delete(`${API_BASE_URL}/api/dashboards/${id}`, {
-        withCredentials: true
+      await axios.delete(`${API_BASE_URL}/api/v1/dashboards/${id}`, {
+        headers: {
+          Authorization: `Bearer ${session.user.backendToken}`
+        }
       });
       
       setDashboards(dashboards.filter(dashboard => dashboard._id !== id));
+      setError('');
     } catch (err) {
       console.error('Error deleting dashboard:', err);
-      setError('Failed to delete dashboard. Please try again.');
+      setError(err.response?.data?.error || 'Failed to delete dashboard');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -94,18 +135,27 @@ export default function DashboardPage() {
   };
 
   const handleClaimDashboard = async (id) => {
+    if (!session?.user?.backendToken) {
+      setError('Authentication required');
+      return;
+    }
+
+    setLoading(true);
     try {
-      await axios.put(`${API_BASE_URL}/api/profiles/${id}/claim`, {}, {
+      await axios.put(`${API_BASE_URL}/api/v1/profiles/${id}/claim`, {}, {
         headers: {
-          'Authorization': `Bearer ${session?.user?.email}`
+          Authorization: `Bearer ${session.user.backendToken}`
         }
       });
       
       // Refresh dashboards after claiming
       fetchDashboards();
+      setError('');
     } catch (err) {
       console.error('Error claiming dashboard:', err);
-      setError('Failed to claim dashboard. Please try again.');
+      setError(err.response?.data?.error || 'Failed to claim dashboard');
+    } finally {
+      setLoading(false);
     }
   };
 

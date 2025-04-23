@@ -48,12 +48,18 @@ export default function CreateProfilePage() {
 
     try {
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/profiles`,
-        formData
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/profiles`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${session.user.backendToken}`
+          }
+        }
       );
-      router.push(`/profile/${response.data.id}`);
+      router.push(`/profile/${response.data.data.id}`);
     } catch (err) {
-      setError('Failed to create profile. Please try again.');
+      console.error('Profile creation error:', err);
+      setError(err.response?.data?.error || 'Failed to create profile. Please try again.');
       setLoading(false);
     }
   };

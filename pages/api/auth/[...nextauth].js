@@ -45,7 +45,12 @@ export default NextAuth({
           const response = await axios.post(
             `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/google`,
             {
-              token: account.id_token
+              token: account.id_token,
+              accessToken: account.access_token,
+              googleId: account.providerAccountId,
+              email: profile.email,
+              name: profile.name,
+              image: profile.image
             }
           );
 
@@ -57,6 +62,8 @@ export default NextAuth({
           }
         } catch (error) {
           console.error('Error getting user data:', error);
+          // Don't throw the error, just log it and continue
+          // This allows the user to still sign in even if the backend call fails
         }
       }
       return token;

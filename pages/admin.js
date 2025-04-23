@@ -38,16 +38,28 @@ export default function AdminPage() {
   }, [session]);
 
   const fetchDashboards = async () => {
+    if (!session?.user?.backendToken) {
+      setError('Authentication required');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const response = await axios.get(`${API_BASE_URL}/api/dashboards`, {
+      const response = await axios.get(`${API_BASE_URL}/api/v1/dashboards`, {
         headers: {
-          Authorization: `Bearer ${session?.user?.backendToken}`,
-        },
+          Authorization: `Bearer ${session.user.backendToken}`
+        }
       });
-      setDashboards(response.data);
-    } catch (error) {
-      console.error('Error fetching dashboards:', error);
-      setError('Failed to fetch dashboards');
+      
+      if (response.data?.data) {
+        setDashboards(response.data.data);
+        setError('');
+      } else {
+        setError('Invalid dashboard data received');
+      }
+    } catch (err) {
+      console.error('Error fetching dashboards:', err);
+      setError(err.response?.data?.error || 'Failed to fetch dashboards');
     } finally {
       setLoading(false);
     }
@@ -55,37 +67,64 @@ export default function AdminPage() {
 
   const handleCreateDashboard = async (e) => {
     e.preventDefault();
+    if (!session?.user?.backendToken) {
+      setError('Authentication required');
+      return;
+    }
+
+    setLoading(true);
     try {
       const response = await axios.post(
-        `${API_BASE_URL}/api/dashboards`,
+        `${API_BASE_URL}/api/v1/dashboards`,
         newDashboard,
         {
           headers: {
-            Authorization: `Bearer ${session?.user?.backendToken}`,
-          },
+            Authorization: `Bearer ${session.user.backendToken}`
+          }
         }
       );
-      setDashboards([...dashboards, response.data]);
-      setNewDashboard({ name: '', description: '', theme: 'default' });
-      setIsCreating(false);
-    } catch (error) {
-      console.error('Error creating dashboard:', error);
-      setError('Failed to create dashboard');
+      
+      if (response.data?.data) {
+        setDashboards([...dashboards, response.data.data]);
+        setNewDashboard({ name: '', description: '', theme: 'default' });
+        setIsCreating(false);
+        setError('');
+      } else {
+        setError('Invalid dashboard data received');
+      }
+    } catch (err) {
+      console.error('Error creating dashboard:', err);
+      setError(err.response?.data?.error || 'Failed to create dashboard');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDeleteDashboard = async (id) => {
-    if (!confirm('Are you sure you want to delete this dashboard?')) return;
+    if (!session?.user?.backendToken) {
+      setError('Authentication required');
+      return;
+    }
+
+    if (!confirm('Are you sure you want to delete this dashboard?')) {
+      return;
+    }
+
+    setLoading(true);
     try {
-      await axios.delete(`${API_BASE_URL}/api/dashboards/${id}`, {
+      await axios.delete(`${API_BASE_URL}/api/v1/dashboards/${id}`, {
         headers: {
-          Authorization: `Bearer ${session?.user?.backendToken}`,
-        },
+          Authorization: `Bearer ${session.user.backendToken}`
+        }
       });
-      setDashboards(dashboards.filter((d) => d._id !== id));
-    } catch (error) {
-      console.error('Error deleting dashboard:', error);
-      setError('Failed to delete dashboard');
+      
+      setDashboards(dashboards.filter(dashboard => dashboard._id !== id));
+      setError('');
+    } catch (err) {
+      console.error('Error deleting dashboard:', err);
+      setError(err.response?.data?.error || 'Failed to delete dashboard');
+    } finally {
+      setLoading(false);
     }
   };
 

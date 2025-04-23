@@ -51,12 +51,9 @@ NEXT_PUBLIC_API_BASE_URL=https://nfc-dashboard-server.onrender.com
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=your-nextauth-secret-key-here
 
-# Google OAuth (Backend)
+# Google OAuth
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
-
-# Google OAuth (Frontend)
-NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id
 
 # Admin Emails (comma-separated)
 NEXT_PUBLIC_ADMIN_EMAILS=admin1@example.com,admin2@example.com
@@ -101,7 +98,7 @@ This project can be deployed to Vercel, Netlify, or any other platform that supp
 
 ## Notes
 - Ensure all required environment variables are set, or the app may not function correctly.
-- Use the same Google Client ID for both backend and frontend if using Google OAuth.
+- The Google Client ID is used for both backend and frontend authentication.
 - `NEXT_PUBLIC_ADMIN_EMAILS` controls admin access in the dashboard and NFC links management.
 - `SESSION_MAX_AGE` controls session expiry for authentication (in seconds).
 

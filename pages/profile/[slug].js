@@ -27,7 +27,7 @@ export default function ProfilePage() {
   }, [session, status, slug, router]);
 
   const fetchProfile = async () => {
-    if (!session?.backendToken) {
+    if (!session?.user?.backendToken) {
       setError('Authentication required');
       setLoading(false);
       return;
@@ -36,7 +36,7 @@ export default function ProfilePage() {
     try {
       const response = await axios.get(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/profiles/${slug}`, {
         headers: {
-          Authorization: `Bearer ${session.backendToken}`
+          Authorization: `Bearer ${session.user.backendToken}`
         }
       });
       
@@ -48,21 +48,10 @@ export default function ProfilePage() {
       } else {
         setError('Invalid profile data received');
       }
-      setLoading(false);
     } catch (err) {
       console.error('Error fetching profile:', err);
-      if (axios.isAxiosError(err)) {
-        if (err.response?.status === 401) {
-          setError('Authentication expired. Please sign in again.');
-          router.push('/api/auth/signin?callbackUrl=' + encodeURIComponent(router.asPath));
-        } else if (err.response?.status === 404) {
-          setError('Profile not found');
-        } else {
-          setError(err.response?.data?.message || 'Failed to load profile');
-        }
-      } else {
-        setError('Failed to load profile');
-      }
+      setError(err.response?.data?.error || 'Failed to fetch profile');
+    } finally {
       setLoading(false);
     }
   };
@@ -80,18 +69,19 @@ export default function ProfilePage() {
   };
 
   const handleSave = async () => {
-    if (!session?.backendToken || !profile?._id) {
+    if (!session?.user?.backendToken) {
       setError('Authentication required');
       return;
     }
 
+    setLoading(true);
     try {
       const response = await axios.put(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/profiles/${profile._id}`,
         formData,
         {
           headers: {
-            Authorization: `Bearer ${session.backendToken}`
+            Authorization: `Bearer ${session.user.backendToken}`
           }
         }
       );
@@ -101,36 +91,30 @@ export default function ProfilePage() {
         setIsEditing(false);
         setError('');
       } else {
-        setError('Invalid response from server');
+        setError('Invalid profile data received');
       }
     } catch (err) {
       console.error('Error updating profile:', err);
-      if (axios.isAxiosError(err)) {
-        if (err.response?.status === 401) {
-          setError('Authentication expired. Please sign in again.');
-          router.push('/api/auth/signin?callbackUrl=' + encodeURIComponent(router.asPath));
-        } else {
-          setError(err.response?.data?.message || 'Failed to update profile');
-        }
-      } else {
-        setError('Failed to update profile');
-      }
+      setError(err.response?.data?.error || 'Failed to update profile');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleClaim = async () => {
-    if (!session?.backendToken || !profile?._id) {
+    if (!session?.user?.backendToken) {
       setError('Authentication required');
       return;
     }
 
+    setLoading(true);
     try {
       const response = await axios.put(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/v1/profiles/${profile._id}/claim`,
         {},
         {
           headers: {
-            Authorization: `Bearer ${session.backendToken}`
+            Authorization: `Bearer ${session.user.backendToken}`
           }
         }
       );
@@ -140,20 +124,13 @@ export default function ProfilePage() {
         setIsOwner(true);
         setError('');
       } else {
-        setError('Invalid response from server');
+        setError('Invalid profile data received');
       }
     } catch (err) {
       console.error('Error claiming profile:', err);
-      if (axios.isAxiosError(err)) {
-        if (err.response?.status === 401) {
-          setError('Authentication expired. Please sign in again.');
-          router.push('/api/auth/signin?callbackUrl=' + encodeURIComponent(router.asPath));
-        } else {
-          setError(err.response?.data?.message || 'Failed to claim profile');
-        }
-      } else {
-        setError('Failed to claim profile');
-      }
+      setError(err.response?.data?.error || 'Failed to claim profile');
+    } finally {
+      setLoading(false);
     }
   };
 
